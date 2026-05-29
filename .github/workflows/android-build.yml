@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ] # Робот включается каждый раз, когда ты жмешь самолётик в ветку main
+    branches: [ main ]
 
 jobs:
   build:
@@ -24,11 +24,25 @@ jobs:
 
       - name: Install Capacitor and Build APK
         run: |
+          # Создаем пустой package.json, если его нет, чтобы npm не ругался
+          if [ ! -f package.json ]; then
+            npm init -y
+          fi
+          
+          # Устанавливаем Capacitor
           npm install @capacitor/core @capacitor/cli
+          
+          # Инициализируем проект Capacitor
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=.
+          
+          # Добавляем Android-платформу
           npm install @capacitor/android
           npx cap add android
+          
+          # Синхронизируем файлы игры с андроид-папкой
           npx cap sync
+          
+          # Собираем сам APK-файл
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
