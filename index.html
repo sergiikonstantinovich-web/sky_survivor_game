@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sky Survivor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Верхняя панель (Статы) -->
+    <div class="stats-panel">
+        <div class="stat-box">❤️ ХП: <span id="hp-val">100</span></div>
+        <div class="stat-box">🪙 Золото: <span id="gold-val">0</span></div>
+        <div class="stat-box">🏆 Очки: <span id="score-val">0</span></div>
+    </div>
+
+    <!-- Игровая зона с холстом -->
+    <div class="game-container">
+        <!-- КНОПКА ПАУЗЫ -->
+        <button id="pause-btn" class="pause-icon-btn">⏸️</button>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- ЭКРАН ПАУЗЫ (Изначально скрыт) -->
+        <div id="pause-screen" class="overlay-screen hidden">
+            <div class="pause-content">
+                <h2>ИГРА НА ПАУЗЕ</h2>
+                <p>Тапни по экрану, чтобы продолжить</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижняя панель (Кнопка прокачки) -->
+    <div class="action-panel">
+        <button id="upgrade-btn" class="rok-btn">
+            🔬 Замедлить поток времени <br>
+            <span id="upgrade-cost-text">(Цена: 100 🪙)</span>
+        </button>
+    </div>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
