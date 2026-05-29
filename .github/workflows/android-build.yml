@@ -11,45 +11,38 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'zulu'
 
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install Capacitor and Build APK
         run: |
-          # 1. Создаем правильную структуру проекта
           if [ ! -f package.json ]; then
             npm init -y
           fi
           
-          # Нам нужна отдельная папка для веб-файлов, чтобы Capacitor не ругался
           mkdir -p www
-          
-          # Копируем туда игру (индекс, стили, скрипты и картинки, если есть)
           cp index.html www/ 2>/dev/null || true
           cp style.css www/ 2>/dev/null || true
           cp game.js www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
           
-          # 2. Устанавливаем и настраиваем Capacitor
-          npm install @capacitor/core @capacitor/cli
-          
-          # Указываем web-dir=www вместо точки
+          npm install @capacitor/core@6 @capacitor/cli@6
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           
-          # 3. Собираем Android проект
-          npm install @capacitor/android
+          npm install @capacitor/android@6
           npx cap add android
+          
+          chmod +x android/gradlew
           npx cap sync
           
-          # 4. Компилируем APK
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
