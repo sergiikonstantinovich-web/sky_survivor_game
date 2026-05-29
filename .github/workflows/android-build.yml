@@ -24,25 +24,32 @@ jobs:
 
       - name: Install Capacitor and Build APK
         run: |
-          # Создаем пустой package.json, если его нет, чтобы npm не ругался
+          # 1. Создаем правильную структуру проекта
           if [ ! -f package.json ]; then
             npm init -y
           fi
           
-          # Устанавливаем Capacitor
+          # Нам нужна отдельная папка для веб-файлов, чтобы Capacitor не ругался
+          mkdir -p www
+          
+          # Копируем туда игру (индекс, стили, скрипты и картинки, если есть)
+          cp index.html www/ 2>/dev/null || true
+          cp style.css www/ 2>/dev/null || true
+          cp game.js www/ 2>/dev/null || true
+          cp -r assets www/ 2>/dev/null || true
+          
+          # 2. Устанавливаем и настраиваем Capacitor
           npm install @capacitor/core @capacitor/cli
           
-          # Инициализируем проект Capacitor
-          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=.
+          # Указываем web-dir=www вместо точки
+          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           
-          # Добавляем Android-платформу
+          # 3. Собираем Android проект
           npm install @capacitor/android
           npx cap add android
-          
-          # Синхронизируем файлы игры с андроид-папкой
           npx cap sync
           
-          # Собираем сам APK-файл
+          # 4. Компилируем APK
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
