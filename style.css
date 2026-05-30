@@ -36,6 +36,61 @@ canvas {
     height: 100%;
 }
 
+/* ======================================================== */
+/* НОВЫЙ ИНТЕРФЕЙС: АПГРЕЙДЫ, ПОЛОСКА ХП И ПАУЗА ПО БОКАМ   */
+/* ======================================================== */
+
+/* Общий чистый стиль для верхних игровых кнопок (без рамок и фонов) */
+.ui-icon-btn {
+    position: absolute;
+    top: 10px;
+    width: 45px;
+    height: 45px;
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    z-index: 50; /* Чтобы кнопки были строго поверх холста */
+    outline: none;
+    -webkit-tap-highlight-color: transparent; /* Полностью убирает системный круг/квадрат при тапе на Android */
+}
+
+/* Кнопка исследований (стрелочка) — строго СЛЕВА */
+.research-pos {
+    left: 15px;
+}
+
+/* Кнопка паузы (две полоски) — строго СПРАВА */
+.pause-pos {
+    right: 15px;
+}
+
+/* Вытянутая полоска ХП в стиле Lamar — идеально зажата между кнопками */
+.hp-bar-container {
+    position: absolute;
+    top: 20px;          /* Выравнивание по центру относительно кнопок */
+    left: 70px;         /* Отступ от левой стрелочки апгрейдов */
+    right: 70px;        /* Отступ от правой кнопки паузы */
+    height: 22px;       /* Вытянутая, аккуратная форма */
+    background: rgba(0, 0, 0, 0.5); /* Темная подложка */
+    border: 2px solid #ffffff;
+    border-radius: 11px; /* Закругленные края в стиле Lamar */
+    overflow: hidden;
+    z-index: 40;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* Динамическое заполнение полосы здоровья */
+.hp-bar-fill {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #ff4b4b, #ff2222); /* Сочный красный градиент */
+    box-shadow: 0 0 8px #ff4b4b;
+    transition: width 0.2s ease-out; /* Плавное убывание здоровья */
+}
+
+/* ======================================================== */
+
 .action-panel {
     padding: 15px;
     background: #222;
@@ -62,31 +117,6 @@ canvas {
 .rok-btn:active {
     background: linear-gradient(180deg, #ff8f00, #ff6f00);
 }
-/* Кнопка паузы в углу */
-/* Кнопка паузы — теперь абсолютно спозиционирована в углу холста */
-.pause-icon-btn {
-    position: absolute;
-    top: 15px;      /* Отступ сверху от панели статов */
-    right: 15px;    /* Отступ справа от края экрана */
-    background: rgba(42, 42, 42, 0.7); /* Полупрозрачный темный фон */
-    border: 2px solid #ffd700;          /* Золотая каемка под стиль игры */
-    border-radius: 50%;                 /* Делаем её круглой и стильной */
-    color: white;
-    font-size: 18px;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 50;    /* Чтобы была поверх летящих шаров */
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}
-
-.pause-icon-btn:active {
-    background: rgba(255, 215, 0, 0.3); /* Легкое золотое свечение при нажатии */
-}
-
 
 /* Окно паузы поверх игры */
 .overlay-screen {
@@ -96,7 +126,7 @@ canvas {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.7); /* Затемнение */
-    backdrop-filter: blur(4px); /* Модное размытие заднего фона */
+    backdrop-filter: blur(4px); /* Размытие заднего фона */
     display: flex;
     align-items: center;
     justify-content: center;

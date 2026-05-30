@@ -7,10 +7,10 @@ let gold = 0;
 let score = 0;
 let isShieldActive = false;
 let shieldTimer = 0;
-let isPaused = false; // ТУТ ХРАНИМ СОСТОЯНИЕ ПАУЗЫ
+let isPaused = false; 
 
-// Настройки скорости и спавна
-let baseSpeed = 2; 
+// НАСТРОЙКИ СКОРОСТИ (Жестко фиксированная базовая скорость)
+const BASE_SPEED = 2.5; 
 let spawnRate = 0.02; 
 let upgradeCost = 100;
 
@@ -28,13 +28,17 @@ const TYPES = {
 };
 
 // UI элементы
-const hpEl = document.getElementById('hp-val');
+const hpBarFill = document.getElementById('hp-bar-fill');
 const goldEl = document.getElementById('gold-val');
 const scoreEl = document.getElementById('score-val');
 const upgradeBtn = document.getElementById('upgrade-btn');
 const upgradeCostText = document.getElementById('upgrade-cost-text');
 const pauseBtn = document.getElementById('pause-btn');
+const researchBtn = document.getElementById('research-btn');
 const pauseScreen = document.getElementById('pause-screen');
+
+// Хранилище для ID анимации, чтобы циклы не накладывались
+let animationFrameId = null;
 
 function resizeCanvas() {
     canvas.width = canvas.parentElement.clientWidth;
@@ -43,9 +47,9 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Пассивная потеря ХП (срабатывает только если нет паузы)
+// Пассивная потеря ХП
 setInterval(() => {
-    if (hp <= 0 || isPaused) return; // Если пауза — ХП не капает!
+    if (hp <= 0 || isPaused) return; 
     
     if (isShieldActive) {
         shieldTimer--;
@@ -57,7 +61,7 @@ setInterval(() => {
     updateUI();
 }, 1000);
 
-// Умный спавн без слипания шариков
+// Спавн шариков
 function spawnItem() {
     if (Math.random() > spawnRate) return;
 
@@ -87,7 +91,8 @@ function spawnItem() {
     items.push({
         x: newX,
         y: newY, 
-        speed: baseSpeed + Math.random() * 1.5,
+        // Скорость теперь строго фиксированная, без рандомных ускорений
+        speed: BASE_SPEED, 
         type: type
     });
 }
@@ -115,8 +120,11 @@ function createSplash(startX, startY) {
 function gameLoop() {
     if (hp <= 0) return;
 
-    // Если игра на паузе, мы просто стопим этот цикл и не перерисовываем кадры
-    if (isPaused) return; 
+    // Если пауза — просто останавливаем отрисовку, не плодя новые кадры
+    if (isPaused) {
+        animationFrameId = null;
+        return; 
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -168,32 +176,50 @@ function gameLoop() {
         ctx.restore();
     }
 
-    requestAnimationFrame(gameLoop);
+    // Запоминаем ID текущего кадра
+    animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// ЛОГИКА ВКЛЮЧЕНИЯ / ВЫКЛЮЧЕНИЯ ПАУЗЫ
+// Логика паузы
 function togglePause() {
     if (hp <= 0) return;
     
     isPaused = !isPaused;
     
     if (isPaused) {
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId); // Жестко стопим старый цикл анимации
+            animationFrameId = null;
+        }
         pauseScreen.classList.remove('hidden');
-        pauseBtn.textContent = '▶️'; // Меняем значок кнопки на Плей
+        pauseBtn.textContent = '▶️'; 
     } else {
         pauseScreen.classList.add('hidden');
-        pauseBtn.textContent = '⏸️'; // Возвращаем значок Паузы
-        gameLoop(); // Перезапускаем цикл анимации
+        pauseBtn.textContent = '⏸️'; 
+        
+        // Перед запуском нового цикла убеждаемся, что старый мертв
+        if (!animationFrameId) {
+            gameLoop(); 
+        }
     }
 }
 
-// Клик по кнопке паузы в углу
+// Кнопка паузы справа
 pauseBtn.addEventListener('click', (e) => {
-    e.stopPropagation(); // Чтобы клик не засчитался как тап по игровому полю
+    e.stopPropagation(); 
     togglePause();
 });
 
-// Клик по самому экрану паузы, чтобы быстро вернуться в игру
+// Кнопка исследований слева (заглушка)
+researchBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!isPaused && hp > 0) {
+        togglePause();
+    }
+    console.log("В будущем тут откроется UI исследований!");
+});
+
+// Клик по экрану паузы для возврата в игру
 pauseScreen.addEventListener('touchstart', (e) => {
     e.preventDefault();
     togglePause();
@@ -201,7 +227,7 @@ pauseScreen.addEventListener('touchstart', (e) => {
 
 // Обработка тапа по игровому полю
 canvas.addEventListener('touchstart', (e) => {
-    if (hp <= 0 || isPaused) return; // Если пауза — тапы по шарам заблокированы
+    if (hp <= 0 || isPaused) return; 
     e.preventDefault(); 
     
     const touch = e.touches[0];
@@ -233,9 +259,8 @@ function handleItemClick(type) {
         isShieldActive = true;
         shieldTimer += 6; 
     } else if (type === TYPES.BOOST) {
-        baseSpeed += 0.4; 
-        spawnRate += 0.005;
-        score += 30;
+        // Убрали разгон скорости от буста, теперь он дает просто больше очков
+        score += 50; 
     } else if (type === TYPES.MINE) {
         hp -= 25; 
     }
@@ -243,7 +268,14 @@ function handleItemClick(type) {
 }
 
 function updateUI() {
-    hpEl.textContent = hp;
+    // Обновление вытянутой полоски ХП
+    hpBarFill.style.width = `${Math.max(0, hp)}%`;
+    if (hp < 30) {
+        hpBarFill.style.background = 'linear-gradient(90deg, #ff0000, #b30000)';
+    } else {
+        hpBarFill.style.background = 'linear-gradient(90deg, #ff4b4b, #ff2222)';
+    }
+
     goldEl.textContent = gold;
     scoreEl.textContent = score;
     upgradeCostText.textContent = `(Цена: ${upgradeCost} 🪙)`;
@@ -255,7 +287,7 @@ function updateUI() {
     }
 
     if (hp <= 0) {
-        hpEl.textContent = 0;
+        hpBarFill.style.width = '0%';
         alert(`💀 Твой отряд разбит! Вы набрали ${score} очков. Нажмите ОК для рестарта.`);
         resetGame();
     }
@@ -265,45 +297,44 @@ function resetGame() {
     hp = 100;
     gold = 0;
     score = 0;
-    baseSpeed = 2;
     spawnRate = 0.02;
     isShieldActive = false;
     shieldTimer = 0;
     isPaused = false;
     items = [];
     splashes = [];
+    
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    
     pauseScreen.classList.add('hidden');
     pauseBtn.textContent = '⏸️';
     updateUI();
     gameLoop();
 }
 
+// Кнопка внизу (пока оставили логику, но она не ломает общую базу)
 upgradeBtn.addEventListener('click', () => {
     if (gold >= upgradeCost && hp > 0 && !isPaused) {
         gold -= upgradeCost;
-        baseSpeed = Math.max(1.2, baseSpeed - 0.6); 
         upgradeCost += 50;
         updateUI();
     }
 });
 
+// Стартовый запуск
 updateUI();
+if (animationFrameId) cancelAnimationFrame(animationFrameId);
 gameLoop();
-// ==========================================
-// ЛОГИКА АВТОПАУЗЫ ПРИ СВОРАЧИВАНИИ
-// ==========================================
 
-// 1. Если человек свернул приложение или переключился на звонок
+// Автопауза при сворачивании
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        // Если игра еще не на паузе и игрок жив — принудительно ставим на паузу
-        if (!isPaused && hp > 0) {
-            togglePause();
-        }
+    if (document.hidden && !isPaused && hp > 0) {
+        togglePause();
     }
 });
-
-// 2. Дополнительная страховка: если приложение просто потеряло фокус (например, вылезла шторка уведомлений)
 window.addEventListener('blur', () => {
     if (!isPaused && hp > 0) {
         togglePause();
