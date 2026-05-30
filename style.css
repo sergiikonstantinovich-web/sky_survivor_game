@@ -155,3 +155,15 @@ canvas {
 .hidden {
     display: none !important;
 }
+/* Эффект заморозки для контейнера полоски (иней/свечение вокруг) */
+.hp-bar-container.frozen-active {
+    border-color: #00d2ff;
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.8);
+    transition: all 0.3s ease;
+}
+
+/* Ледяной неоново-голубой градиент для самого заполнения ХП */
+.hp-bar-fill.frozen-fill {
+    background: linear-gradient(90deg, #00f0ff, #00a8ff) !important;
+    box-shadow: 0 0 10px #00f0ff !important;
+}

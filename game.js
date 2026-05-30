@@ -9,6 +9,13 @@ let isShieldActive = false;
 let shieldTimer = 0;
 let isPaused = false; 
 
+// СИСТЕМА УРОВНЕЙ
+let currentLevel = 1;
+const LEVEL_CONFIG = {
+    1: { name: "🚀 Волна 1: Мирное небо", targetScore: 100, hpLoss: 2, spawnRate: 0.02, mineChance: 0.4 },
+    2: { name: "💥 Волна 2: Минное поле", targetScore: 300, hpLoss: 3, spawnRate: 0.03, mineChance: 0.6 },
+    3: { name: "⚡ Волна 3: Гиперскорость", targetScore: Infinity, hpLoss: 5, spawnRate: 0.04, mineChance: 0.5 }
+};
 // НАСТРОЙКИ СКОРОСТИ (Жестко фиксированная базовая скорость)
 const BASE_SPEED = 2.5; 
 let spawnRate = 0.02; 
@@ -47,7 +54,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Пассивная потеря ХП
+// Пассивная потеря ХП в зависимости от уровня
 setInterval(() => {
     if (hp <= 0 || isPaused) return; 
     
@@ -55,20 +62,28 @@ setInterval(() => {
         shieldTimer--;
         if (shieldTimer <= 0) isShieldActive = false;
     } else {
-        hp -= 2; 
+        // Берем урон текущего уровня (например: 2, 3 или 5 в секунду)
+        let hpLoss = LEVEL_CONFIG[currentLevel]?.hpLoss || 2;
+        hp -= hpLoss; 
     }
+    
     score += 1; 
+    checkLevelUp(); // На всякий случай проверяем уровень по времени
     updateUI();
 }, 1000);
 
+
 // Спавн шариков
 function spawnItem() {
-    if (Math.random() > spawnRate) return;
+    // 1. Динамически берем частоту спавна из текущего уровня
+    let currentSpawnRate = LEVEL_CONFIG[currentLevel]?.spawnRate || 0.02;
+    if (Math.random() > currentSpawnRate) return;
 
     let newX = Math.random() * (canvas.width - 60) + 30;
     const newY = canvas.height + 50; 
     const minSafeDistance = 65; 
 
+    // Проверка на то, чтобы шары не налезали друг на друга при появлении
     for (let i = 0; i < items.length; i++) {
         let existingItem = items[i];
         if (existingItem.y > canvas.height - 100) {
@@ -82,20 +97,49 @@ function spawnItem() {
     const rand = Math.random();
     let type;
 
-    if (rand < 0.45) type = TYPES.GOLD;       
-    else if (rand < 0.85) type = TYPES.MINE;  
-    else if (rand < 0.94) type = TYPES.HEAL;  
-    else if (rand < 0.98) type = TYPES.BOOST; 
-    else type = TYPES.SHIELD;                 
+    // 2. Берем базовый шанс мины из текущего уровня
+    let mineChance = LEVEL_CONFIG[currentLevel]?.mineChance || 0.40;
+
+    // ========================================================
+    // СИСТЕМА ГАРАНТА (Защита от злого рандома)
+    // ========================================================
+    let finalRand = rand;
+    
+    if (hp < 30) {
+        // Если у игрока меньше 30 ХП, мы искусственно режем шанс появления мины в 2 раза
+        mineChance = mineChance / 2;
+        
+        // И если рандом изначально целился в мину, с вероятностью 50% превращаем её в аптечку
+        if (rand >= 0.45 && rand < 0.45 + (mineChance * 2)) {
+            if (Math.random() > 0.5) {
+                finalRand = 0.90; // Принудительно сдвигаем значение в зону спавна ТYPES.HEAL
+            }
+        }
+    }
+    // ========================================================
+
+    // Динамическое распределение типов в зависимости от волны и работы гаранта
+    if (finalRand < 0.45) {
+        type = TYPES.GOLD;       
+    } else if (finalRand < 0.45 + mineChance) { 
+        type = TYPES.MINE;  
+    } else if (finalRand < 0.94) {
+        type = TYPES.HEAL;  // Сюда теперь чаще залетают шары при критическом ХП
+    } else if (finalRand < 0.98) {
+        type = TYPES.BOOST; 
+    } else {
+        type = TYPES.SHIELD;                 
+    }
 
     items.push({
         x: newX,
         y: newY, 
-        // Скорость теперь строго фиксированная, без рандомных ускорений
         speed: BASE_SPEED, 
         type: type
     });
 }
+
+
 
 // Создание частиц сплэша
 function createSplash(startX, startY) {
@@ -253,8 +297,9 @@ function handleItemClick(type) {
     if (type === TYPES.GOLD) {
         gold += 10;
         score += 5;
+        checkLevelUp ();
     } else if (type === TYPES.HEAL) {
-        hp = Math.min(100, hp + 15);
+        hp = Math.min(100, hp + 25);
     } else if (type === TYPES.SHIELD) {
         isShieldActive = true;
         shieldTimer += 6; 
@@ -267,13 +312,46 @@ function handleItemClick(type) {
     updateUI();
 }
 
+function checkLevelUp() {
+    let config = LEVEL_CONFIG[currentLevel];
+    if (!config) return;
+
+    // Если набрали нужное количество очков для следующего уровня
+    if (score >= config.targetScore && LEVEL_CONFIG[currentLevel + 1]) {
+        currentLevel++;
+        let nextConfig = LEVEL_CONFIG[currentLevel];
+        
+        // Даем жирный бонус за переход на новую волну!
+        gold += 50;
+        hp = Math.min(100, hp + 20);
+        
+        // Всплывающее уведомление (пока системное, чтобы протестировать механику)
+        alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}\nБонус: +50 🪙 и +20 ❤️`);
+        updateUI();
+    }
+}
+
 function updateUI() {
-    // Обновление вытянутой полоски ХП
+    // Получаем контейнер полоски, чтобы вешать свечение на рамку
+    const hpContainer = document.querySelector('.hp-bar-container');
+    
+    // Обновляем ширину полоски ХП
     hpBarFill.style.width = `${Math.max(0, hp)}%`;
-    if (hp < 30) {
-        hpBarFill.style.background = 'linear-gradient(90deg, #ff0000, #b30000)';
+    
+    // ПРОВЕРКА НА ЩИТ (ЗАМОРОЗКА)
+    if (isShieldActive) {
+        hpContainer.classList.add('frozen-active');
+        hpBarFill.classList.add('frozen-fill');
     } else {
-        hpBarFill.style.background = 'linear-gradient(90deg, #ff4b4b, #ff2222)';
+        // Если щита нет — возвращаем обычные цвета (красный или критический темный)
+        hpContainer.classList.remove('frozen-active');
+        hpBarFill.classList.remove('frozen-fill');
+        
+        if (hp < 30) {
+            hpBarFill.style.background = 'linear-gradient(90deg, #ff0000, #b30000)';
+        } else {
+            hpBarFill.style.background = 'linear-gradient(90deg, #ff4b4b, #ff2222)';
+        }
     }
 
     goldEl.textContent = gold;
@@ -293,7 +371,9 @@ function updateUI() {
     }
 }
 
+
 function resetGame() {
+    currentLevel = 1;
     hp = 100;
     gold = 0;
     score = 0;
