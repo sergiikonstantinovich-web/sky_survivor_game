@@ -35,8 +35,8 @@ jobs:
           cp game.js www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
           
-          # 3. Инициализируем Capacitor и создаем папку android
-          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www --force
+          # 3. Инициализируем Capacitor и создаем папку android (БЕЗ ФЛАГА FORCE)
+          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
           
           # 4. Устанавливаем утилиту для нарезки картинок
