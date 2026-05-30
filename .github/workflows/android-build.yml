@@ -47,6 +47,9 @@ jobs:
           chmod +x android/gradlew
           npx cap sync
           
+          sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
+
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
