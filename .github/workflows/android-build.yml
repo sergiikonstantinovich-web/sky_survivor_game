@@ -40,6 +40,10 @@ jobs:
           npm install @capacitor/android@6
           npx cap add android
           
+          # Генерируем иконки из папки resources перед синхронизацией
+          npm install @capacitor/assets
+          npx cordova-res android --skip-splash || true
+          
           chmod +x android/gradlew
           npx cap sync
           
