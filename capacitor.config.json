@@ -1,0 +1,6 @@
+{
+  "appId": "ru.mygame.skysurvivor",
+  "appName": "Sky Survivor",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
