@@ -24,53 +24,59 @@ jobs:
 
       - name: Install Dependencies and Build APK
         run: |
-          if [ ! -f package.json ]; then
-            npm init -y
-          fi
+          # 1. Создаем временный package.json чисто для Гитхаба
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
+          # 2. Собираем веб-часть в папку www
           mkdir -p www
           cp index.html www/ 2>/dev/null || true
           cp style.css www/ 2>/dev/null || true
           cp game.js www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
           
-          npm install @capacitor/core@6 @capacitor/cli@6
-          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
-          
-          npm install @capacitor/android@6
+          # 3. Инициализируем Capacitor и создаем папку android
+          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www --force
           npx cap add android
           
-          # НАДЕЖНЫЙ СУПЕР-ГЕНЕРАТОР ИКОНОК (Bypassing cordova-res)
+          # 4. Устанавливаем утилиту для нарезки картинок
           sudo apt-get update && sudo apt-get install -y imagemagick
           
+          # 5. ЖЕСТКАЯ ПОДМЕНА ИКОНОК (Делаем строго ПОСЛЕ создания папки android)
+          RES_DIR="android/app/src/main/res"
+          
           if [ -f resources/icon.png ]; then
-            echo "Найдена иконка! Начинаем жесткую замену ресурсов..."
-            RES_DIR="android/app/src/main/res"
+            echo "Иконка найдена! Уничтожаем дефолтные xml-маски..."
+            # Удаляем адаптивные xml-иконки, которые принудительно показывают синий робот Capacitor
+            find $RES_DIR -name "ic_launcher.xml" -delete || true
+            find $RES_DIR -name "ic_launcher_round.xml" -delete || true
             
-            # Генерируем стандартные квадратные иконки
+            echo "Нарезаем новую золотую иконку..."
+            # Квадратные иконки
             convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher.png || true
             convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher.png || true
             convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher.png || true
             convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher.png || true
             convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher.png || true
             
-            # Генерируем круглые иконки (для новых версий Android)
+            # Круглые иконки (для новых Андроидов)
             convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher_round.png || true
             convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher_round.png || true
             convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher_round.png || true
             convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher_round.png || true
             convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png || true
           else
-            echo "ВНИМАНИЕ: Файл resources/icon.png не найден!"
+            echo "КРИТИЧЕСКАЯ ОШИБКА: resources/icon.png не найден в репозитории!"
+            exit 1
           fi
           
-          # Автоматическое изменение версии приложения на основе времени, чтобы Android увидел обновление
+          # 6. Меняем версию приложения по времени сборки, чтобы телефон принудительно обновил кэш
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
+          # 7. Финальная синхронизация и запуск компиляции
+          npx cap sync android
           chmod +x android/gradlew
-          npx cap sync
-          
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
