@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Capacitor and Build APK
+      - name: Install Dependencies and Build APK
         run: |
           if [ ! -f package.json ]; then
             npm init -y
@@ -40,16 +40,37 @@ jobs:
           npm install @capacitor/android@6
           npx cap add android
           
-          # Генерируем иконки из папки resources перед синхронизацией
-          npm install @capacitor/assets
-          npx cordova-res android --skip-splash || true
+          # НАДЕЖНЫЙ СУПЕР-ГЕНЕРАТОР ИКОНОК (Bypassing cordova-res)
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          
+          if [ -f resources/icon.png ]; then
+            echo "Найдена иконка! Начинаем жесткую замену ресурсов..."
+            RES_DIR="android/app/src/main/res"
+            
+            # Генерируем стандартные квадратные иконки
+            convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher.png || true
+            
+            # Генерируем круглые иконки (для новых версий Android)
+            convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png || true
+          else
+            echo "ВНИМАНИЕ: Файл resources/icon.png не найден!"
+          fi
+          
+          # Автоматическое изменение версии приложения на основе времени, чтобы Android увидел обновление
+          sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
           chmod +x android/gradlew
           npx cap sync
           
-          sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
-          sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
-
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
