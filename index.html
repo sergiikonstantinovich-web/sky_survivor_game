@@ -28,8 +28,20 @@
         <div id="pause-screen" class="overlay-screen hidden">
             <div class="pause-content">
                 <h2>ИГРА НА ПАУЗЕ</h2>
-                <p>Тапни по экрану, чтобы продолжить</p>
+                <button id="resume-btn" onclick="if(window.Game) window.Game.togglePause()" style="
+                    background: #4caf50; color: white; border: none; 
+                    padding: 12px 24px; font-size: 16px; font-weight: bold; 
+                    border-radius: 8px; margin-top: 15px; width: 100%;
+                    cursor: pointer; font-family: sans-serif; text-transform: uppercase;
+                ">
+                    ▶️ Продолжить
+                </button>
             </div>
+        </div>
+
+        <div id="research-screen" class="overlay-screen hidden">
+            <div class="pause-content">
+                </div>
         </div>
     </div>
 

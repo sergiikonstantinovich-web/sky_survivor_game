@@ -63,13 +63,13 @@ const Engine = {
         if (finalRand < 0.45) type = window.TYPES.GOLD;       
         else if (finalRand < 0.45 + mineChance) type = window.TYPES.MINE;  
         else if (finalRand < 0.94) type = window.TYPES.HEAL;  
-        else if (finalRand < 0.98) type = window.TYPES.BOOST; 
+        else if (finalRand < 0.97) type = window.TYPES.BOOST; 
         else type = window.TYPES.SHIELD;                 
 
         window.gameState.items.push({ x: newX, y: newY, speed: window.BASE_SPEED, type: type });
     },
 
-    createSplash(startX, startY) {
+    createSplash(startX, startY, color = '#00f0ff') { // По умолчанию бирюзовый
         if (!window.gameState) return;
 
         const particleCount = 12; 
@@ -79,27 +79,32 @@ const Engine = {
             window.gameState.splashes.push({
                 x: startX, y: startY,
                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                radius: Math.random() * 4 + 2, alpha: 1, decay: Math.random() * 0.03 + 0.02 
+                radius: Math.random() * 4 + 2, alpha: 1, 
+                decay: Math.random() * 0.03 + 0.02,
+                color: color // Запоминаем цвет для этой искры
             });
         }
     },
+
 
     render() {
         if (!window.gameState) return;
 
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Генерируем новые шарики
-        this.spawnItem();
+        // Генерируем новые шарики только если игра НЕ на паузе и Лаборатория НЕ открыта
+        if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
+            this.spawnItem();
+        }
 
         // Отрисовка летящих фигур
         for (let i = window.gameState.items.length - 1; i >= 0; i--) {
-    let item = window.gameState.items[i];
-    
-    // СТРОГО ВОТ ТАК: Если игра на паузе, item.y НЕ должен меняться!
-    if (!window.gameState.isPaused) {
-        item.y -= item.speed; 
-    }
+            let item = window.gameState.items[i];
+            
+            // ИСПРАВЛЕНО: Шарики застывают и при паузе, и при открытых исследованиях
+            if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
+                item.y -= item.speed; 
+            }
 
             this.ctx.beginPath();
             this.ctx.arc(item.x, item.y, item.type.radius, 0, Math.PI * 2);
@@ -120,7 +125,11 @@ const Engine = {
         // Отрисовка сплэш-искр
         for (let i = window.gameState.splashes.length - 1; i >= 0; i--) {
             let p = window.gameState.splashes[i];
-            p.x += p.vx; p.y += p.vy; p.alpha -= p.decay; 
+            
+            // Искры тоже застывают во время паузы/исследований
+            if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
+                p.x += p.vx; p.y += p.vy; p.alpha -= p.decay; 
+            }
 
             if (p.alpha <= 0) {
                 window.gameState.splashes.splice(i, 1);
@@ -131,9 +140,12 @@ const Engine = {
             this.ctx.globalAlpha = p.alpha;
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            this.ctx.fillStyle = '#00f0ff'; 
+            
+            // ИСПРАВЛЕНО: Берём индивидуальный цвет частицы (бирюзовый для экрана, красный для объектов)
+            this.ctx.fillStyle = p.color; 
             this.ctx.shadowBlur = 10;
-            this.ctx.shadowColor = '#00f0ff';
+            this.ctx.shadowColor = p.color;
+            
             this.ctx.fill();
             this.ctx.restore();
         }
@@ -141,7 +153,7 @@ const Engine = {
 
     setupTouches() {
         this.canvas.addEventListener('touchstart', (e) => {
-            if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isPaused) return; 
+            if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isPaused || window.gameState.isResearchOpen) return; 
             e.preventDefault(); 
             
             const touch = e.touches[0];
@@ -149,6 +161,7 @@ const Engine = {
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
+            // Тап по экрану — летят БИРЮЗОВЫЕ искры (цвет по умолчанию)
             this.createSplash(touchX, touchY);
 
             for (let i = window.gameState.items.length - 1; i >= 0; i--) {
@@ -156,6 +169,9 @@ const Engine = {
                 let dist = Math.hypot(touchX - item.x, touchY - item.y);
 
                 if (dist < item.type.radius + 18) { 
+                    // Точное попадание по объекту — бахаем КРАСНЫМИ искрами!
+                    this.createSplash(item.x, item.y, '#ff2222');
+
                     if (window.Game) window.Game.handleItemClick(item.type);
                     window.gameState.items.splice(i, 1); 
                     break;
