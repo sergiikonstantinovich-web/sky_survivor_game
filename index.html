@@ -1,6 +1,73 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<div id="dev-console" style="
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 150px; 
+    background: rgba(0, 0, 0, 0.9); 
+    color: #00ff00; 
+    font-family: monospace; 
+    font-size: 11px; 
+    z-index: 999999; 
+    overflow-y: scroll; 
+    border-top: 2px solid #00f0ff;
+    padding: 5px;
+    box-sizing: border-box;
+    pointer-events: auto;
+    display: block;
+">
+    <div style="font-weight: bold; color: #00f0ff; border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 5px;">
+        📟 ДИАГНОСТИКА АПК (Логи):
+    </div>
+    <div id="dev-console-logs"></div>
+</div>
+
+<script>
+    (function() {
+        const consoleLogDist = document.getElementById('dev-console-logs');
+        
+        function logToScreen(message, color = '#00ff00') {
+            if (!consoleLogDist) return;
+            const logLine = document.createElement('div');
+            logLine.style.color = color;
+            logLine.style.marginBottom = '3px';
+            logLine.style.wordBreak = 'break-all';
+            logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleLogDist.appendChild(logLine);
+            
+            // Автоскролл вниз при новых логах
+            document.getElementById('dev-console').scrollTop = document.getElementById('dev-console').scrollHeight;
+        }
+
+        // Перехват обычных console.log
+        const oldLog = console.log;
+        console.log = function(...args) {
+            oldLog.apply(console, args);
+            logToScreen(args.join(' '), '#ffffff');
+        };
+
+        // Перехват критических ошибок JS (ReferenceError, SyntaxError и т.д.)
+        window.onerror = function(message, source, lineno, colno, error) {
+            const fileName = source ? source.split('/').pop() : 'unknown';
+            logToScreen(`❌ КРИТ: ${message} (${fileName}:${lineno}:${colno})`, '#ff3333');
+            return false;
+        };
+
+        // Перехват косяков с асинхронным кодом
+        window.addEventListener('unhandledrejection', function(event) {
+            logToScreen(`❌ АСИНХ_ОШИБКА: ${event.reason}`, '#ff9900');
+        });
+
+        // Контрольный выстрел — проверяем, жива ли вообще среда
+        document.addEventListener("DOMContentLoaded", () => {
+            logToScreen("Система отладки запущена. Ожидание загрузки модулей...", '#00f0ff');
+        });
+    })();
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:; script-src 'self' 'unsafe-inline' 'unsafe-eval';">
