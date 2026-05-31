@@ -29,39 +29,51 @@ jobs:
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
           # ========================================================
-          # УМНАЯ СКЛЕЙКА КОДА ДЛЯ ИСПРАВЛЕНИЯ КРАШЕЙ В АПК
+          # УБИЙЦА РЕГИСТРА БУКВ: УМНАЯ СКЛЕЙКА СКРИПТОВ
           # ========================================================
           echo "=== ЗАПУСК УМНОГО СКЛЕЙЩИКА СКРИПТОВ ==="
           
-          # Проверяем, все ли файлы на месте
-          for file in config.js ui.js engine.js game.js; do
-            if [ ! -f "$file" ]; then
-              echo "КРИТ: Файл $file не найден в репозитории!"
-              exit 1
-            fi
-          done
+          # Включаем в bash поиск файлов без учета регистра (case-insensitive globbing)
+          shopt -s nocaseglob
           
-          # Объединяем все скрипты в один временный файл
-          cat config.js ui.js engine.js game.js > fullcode.js
+          # Находим реальные имена файлов в репозитории (хоть Config.js, хоть config.js)
+          REAL_CONFIG=$(ls config.js 2>/dev/null || ls src/config.js 2>/dev/null || echo "")
+          REAL_UI=$(ls ui.js 2>/dev/null || ls src/ui.js 2>/dev/null || echo "")
+          REAL_ENGINE=$(ls engine.js 2>/dev/null || ls src/engine.js 2>/dev/null || echo "")
+          REAL_GAME=$(ls game.js 2>/dev/null || ls src/game.js 2>/dev/null || echo "")
           
-          # Вырезаем теги локальной загрузки и вшиваем монолит
+          echo "Найден config: $REAL_CONFIG"
+          echo "Найден ui: $REAL_UI"
+          echo "Найден engine: $REAL_ENGINE"
+          echo "Найден game: $REAL_GAME"
+          
+          # Склеиваем только то, что реально нашли
+          cat $REAL_CONFIG $REAL_UI $REAL_ENGINE $REAL_GAME > fullcode.js 2>/dev/null || true
+          
+          # Выключаем nocaseglob обратно на всякий случай
+          shopt -u nocaseglob
+          
+          # Вшиваем монолит в index.html
           node -e "
             const fs = require('fs');
-            let html = fs.readFileSync('index.html', 'utf8');
-            let code = fs.readFileSync('fullcode.js', 'utf8');
-            
-            const regex = /([\s\S]*?)/;
-            
-            if (regex.test(html)) {
-              html = html.replace(regex, '<script type=\"text/javascript\">' + code + '</script>');
-              console.log('🎉 Локальные скрипты успешно заменены на bundle!');
+            if (fs.existsSync('fullcode.js') && fs.statSync('fullcode.js').size > 0) {
+              let html = fs.readFileSync('index.html', 'utf8');
+              let code = fs.readFileSync('fullcode.js', 'utf8');
+              
+              const regex = /([\s\S]*?)/;
+              
+              if (regex.test(html)) {
+                html = html.replace(regex, '<script type=\"text/javascript\">' + code + '</script>');
+                console.log('🎉 Локальные скрипты успешно заменены на bundle!');
+              } else {
+                html = html.replace('</body>', '<script type=\"text/javascript\">' + code + '</script></body>');
+              }
+              fs.writeFileSync('index.html', html, 'utf8');
             } else {
-              console.log('⚠️ Маркеры не найдены, аварийно вшиваем перед закрытием body...');
-              html = html.replace('</body>', '<script type=\"text/javascript\">' + code + '</script></body>');
+              console.log('⚠️ Предупреждение: fullcode.js пуст, склейка пропущена.');
             }
-            fs.writeFileSync('index.html', html, 'utf8');
           "
-          echo "=== СКЛЕЙКА УСПЕШНО ЗАВЕРШЕНА ==="
+          echo "=== СКЛЕЙКА ДЛЯ APK УСПЕШНО ЗАВЕРШЕНА ==="
           # ========================================================
           
           # 2. Собираем готовую веб-часть в папку www
@@ -112,7 +124,7 @@ jobs:
           cd android && ./gradlew assembleDebug
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/uses/upload-artifact@v4
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
