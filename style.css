@@ -1,4 +1,11 @@
-body {
+/* Убираем квадратное выделение при тапе на смартфонах */
+* {
+    -webkit-tap-highlight-color: transparent;
+    outline: none !important;
+}
+
+/* Красим фон страницы в цвет игры, чтобы скрыть серую навигацию */
+html, body {
     margin: 0;
     padding: 0;
     background-color: #111;
