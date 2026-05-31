@@ -24,12 +24,12 @@ jobs:
 
       - name: Install Dependencies and Build APK
         run: |
-          # 1. Создаем package.json чисто для Гитхаба
+          # 1. Создаем package.json
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
-          # ========================================================
-          # БРОНЕБОЙНЫЙ СКЛЕЙЩИК НА NODE.JS (БЕЗ CAT И BASH-ПРИКОЛОВ)
+                  # ========================================================
+          # БРОНЕБОЙНЫЙ СКЛЕЙЩИК С ОЧИСТКОЙ ПРОБЕЛОВ
           # ========================================================
           echo "=== ЗАПУСК АВТОНОМНОГО СКЛЕЙЩИКА ==="
           
@@ -37,16 +37,33 @@ jobs:
             const fs = require('fs');
             const path = require('path');
 
-            // Функция для поиска файла без учета регистра букв в корне или в src/
-            function findFile(name) {
-                const targets = ['.', 'src'];
-                for (const dir of targets) {
-                    if (!fs.existsSync(dir)) continue;
-                    const files = fs.readdirSync(dir);
-                    const found = files.find(f => f.toLowerCase() === name.toLowerCase());
-                    if (found) return path.join(dir, found);
+            // Ищет файл, удаляя пробелы из имён и игнорируя регистр
+            function findFile(targetName) {
+                function searchDir(currentDir) {
+                    if (currentDir.includes('node_modules') || currentDir.includes('.git') || currentDir.includes('android')) {
+                        return null;
+                    }
+                    if (!fs.existsSync(currentDir)) return null;
+                    
+                    const items = fs.readdirSync(currentDir);
+                    
+                    // Проверяем файлы, очищая их от пробелов .trim()
+                    const found = items.find(item => item.trim().toLowerCase() === targetName.toLowerCase());
+                    if (found) {
+                        const fullPath = path.join(currentDir, found);
+                        if (fs.statSync(fullPath).isFile()) return fullPath;
+                    }
+                    
+                    for (const item of items) {
+                        const fullPath = path.join(currentDir, item);
+                        if (fs.statSync(fullPath).isDirectory()) {
+                            const res = searchDir(fullPath);
+                            if (res) return res;
+                        }
+                    }
+                    return null;
                 }
-                return null;
+                return searchDir('.');
             }
 
             const configPath = findFile('config.js');
@@ -54,18 +71,17 @@ jobs:
             const enginePath = findFile('engine.js');
             const gamePath = findFile('game.js');
 
-            console.log('Ищем файлы...');
+            console.log('Ищем файлы (с очисткой пробелов)...');
             console.log('-> Config:', configPath);
             console.log('-> UI:', uiPath);
             console.log('-> Engine:', enginePath);
             console.log('-> Game:', gamePath);
 
             if (!configPath || !uiPath || !enginePath || !gamePath) {
-                console.error('КРИТ: Один или несколько JS-файлов не найдены в репозитории!');
+                console.error('КРИТ: Один или несколько JS-файлов не найдены!');
                 process.exit(1);
             }
 
-            // Читаем и склеиваем в один монолит
             const configCode = fs.readFileSync(configPath, 'utf8');
             const uiCode = fs.readFileSync(uiPath, 'utf8');
             const engineCode = fs.readFileSync(enginePath, 'utf8');
@@ -73,28 +89,26 @@ jobs:
             
             const fullCode = configCode + '\n' + uiCode + '\n' + engineCode + '\n' + gameCode;
 
-            // Модифицируем index.html
             let html = fs.readFileSync('index.html', 'utf8');
             
-            // Вырезаем старые теги скриптов
+            // Вырезаем старые теги (учитываем возможные пробелы в путях внутри src=)
             html = html.replace(/<script.*src=\".*config\.js\"><\/script>/i, '');
             html = html.replace(/<script.*src=\".*ui\.js\"><\/script>/i, '');
             html = html.replace(/<script.*src=\".*engine\.js\"><\/script>/i, '');
             
-            // Вместо game.js вшиваем весь ультимативный код
             const targetTag = /<script.*src=\".*game\.js\"><\/script>/i;
             if (targetTag.test(html)) {
                 html = html.replace(targetTag, '<script type=\"text/javascript\">' + fullCode + '</script>');
-                console.log('🎉 Код успешно вшит в тег game.js!');
+                console.log('🎉 Код успешно встроен!');
             } else {
                 html = html.replace('</body>', '<script type=\"text/javascript\">' + fullCode + '</script></body>');
-                console.log('⚠️ Тег не найден, врезали перед закрывающим body');
+                console.log('⚠️ Врезали перед закрывающим body');
             }
 
             fs.writeFileSync('index.html', html, 'utf8');
             console.log('=== СКЛЕЙКА ПОЛНОСТЬЮ ЗАВЕРШЕНА ===');
           "
-          # ========================================================
+
           
           # 2. Собираем готовую веб-часть в папку www
           mkdir -p www
@@ -106,7 +120,7 @@ jobs:
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
           
-          # 4. Устанавливаем утилиту для нарезки картинок
+          # 4. Устанавливаем imagemagick для иконок
           sudo apt-get update && sudo apt-get install -y imagemagick
           
           # 5. Подмена иконок
