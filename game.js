@@ -132,32 +132,58 @@ const Game = {
         window.UI.update();
     },
 
-    setupEvents() {
-        window.UI.pauseBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            this.togglePause();
-        });
+        setupEvents() {
+        // Если вдруг ui.js не успел создать объект UI, собираем его принудительно на лету
+        if (!window.UI) {
+            window.UI = {
+                pauseBtn: document.getElementById('pauseBtn'), // проверь, чтобы id в html совпадали!
+                researchBtn: document.getElementById('researchBtn'),
+                pauseScreen: document.getElementById('pauseScreen'),
+                upgradeBtn: document.getElementById('upgradeBtn'),
+                update: function() { if (typeof updateUI === 'function') updateUI(); }
+            };
+        }
 
-        window.UI.researchBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (window.gameState && !window.gameState.isPaused && window.gameState.hp > 0) {
+        // Проверяем, появились ли кнопки в window.UI. Если нет — берем напрямую из HTML document
+        const pauseBtn = window.UI.pauseBtn || document.getElementById('pauseBtn');
+        const researchBtn = window.UI.researchBtn || document.getElementById('researchBtn');
+        const pauseScreen = window.UI.pauseScreen || document.getElementById('pauseScreen');
+        const upgradeBtn = window.UI.upgradeBtn || document.getElementById('upgradeBtn');
+
+        // Вешаем события только если элементы физически найдены в HTML, чтобы билд не падал
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
                 this.togglePause();
-            }
-        });
+            });
+        }
 
-        window.UI.pauseScreen.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.togglePause();
-        });
+        if (researchBtn) {
+            researchBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (window.gameState && !window.gameState.isPaused && window.gameState.hp > 0) {
+                    this.togglePause();
+                }
+            });
+        }
 
-        window.UI.upgradeBtn.addEventListener('click', () => {
-            if (!window.gameState) return;
-            if (window.gameState.gold >= window.gameState.upgradeCost && window.gameState.hp > 0 && !window.gameState.isPaused) {
-                window.gameState.gold -= window.gameState.upgradeCost;
-                window.gameState.upgradeCost += 50;
-                window.UI.update();
-            }
-        });
+        if (pauseScreen) {
+            pauseScreen.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.togglePause();
+            });
+        }
+
+        if (upgradeBtn) {
+            upgradeBtn.addEventListener('click', () => {
+                if (!window.gameState) return;
+                if (window.gameState.gold >= window.gameState.upgradeCost && window.gameState.hp > 0 && !window.gameState.isPaused) {
+                    window.gameState.gold -= window.gameState.upgradeCost;
+                    window.gameState.upgradeCost += 50;
+                    if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+                }
+            });
+        }
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && window.gameState && !window.gameState.isPaused && window.gameState.hp > 0) {
@@ -167,6 +193,7 @@ const Game = {
         
         this.startTimers();
     }
+
 };
 
 window.Game = Game;
