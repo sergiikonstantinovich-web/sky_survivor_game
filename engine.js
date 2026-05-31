@@ -94,8 +94,12 @@ const Engine = {
 
         // Отрисовка летящих фигур
         for (let i = window.gameState.items.length - 1; i >= 0; i--) {
-            let item = window.gameState.items[i];
-            item.y -= item.speed; 
+    let item = window.gameState.items[i];
+    
+    // СТРОГО ВОТ ТАК: Если игра на паузе, item.y НЕ должен меняться!
+    if (!window.gameState.isPaused) {
+        item.y -= item.speed; 
+    }
 
             this.ctx.beginPath();
             this.ctx.arc(item.x, item.y, item.type.radius, 0, Math.PI * 2);

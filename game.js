@@ -1,8 +1,13 @@
 const Game = {
     animationFrameId: null,
+    isInitialized: false, // Флаг-замок
 
     start() {
-        // Железная подстраховка: если config.js не успел, создаем gameState прямо здесь
+        // Если игра УЖЕ запущена — игнорируем повторный вызов
+        if (this.isInitialized) return; 
+        this.isInitialized = true; 
+
+        // Железная подстраховка состояния
         if (!window.gameState) {
             window.gameState = {
                 hp: 100, gold: 0, score: 0, currentLevel: 1,
@@ -15,9 +20,10 @@ const Game = {
         this.setupEvents();
         if (window.UI) window.UI.update();
         
-        // Запускаем цикл
+        // Запускаем единственный цикл
         this.loop();
     },
+
 
     loop() {
         // Если gameState вдруг пропал, не ломаем игру, а просто ждем его на следующем кадре
@@ -76,18 +82,19 @@ const Game = {
     },
 
     togglePause() {
-        if (!window.gameState || window.gameState.hp <= 0) return;
-        
-        window.gameState.isPaused = !window.gameState.isPaused;
-        
-        if (window.gameState.isPaused) {
-            window.UI.pauseScreen.classList.remove('hidden');
-            window.UI.pauseBtn.textContent = '▶️'; 
-        } else {
-            window.UI.pauseScreen.classList.add('hidden');
-            window.UI.pauseBtn.textContent = '⏸️'; 
-        }
-    },
+    if (!window.gameState || window.gameState.hp <= 0) return;
+    
+    window.gameState.isPaused = !window.gameState.isPaused;
+    
+    if (window.gameState.isPaused) {
+        window.UI.pauseScreen.classList.remove('hidden');
+        window.UI.pauseBtn.textContent = '▶️'; 
+    } else {
+        window.UI.pauseScreen.classList.add('hidden');
+        window.UI.pauseBtn.textContent = '⏸️'; 
+    }
+},
+
 
     checkLevelUp() {
         if (!window.gameState) return;
