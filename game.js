@@ -82,18 +82,30 @@ const Game = {
     },
 
     togglePause() {
-    if (!window.gameState || window.gameState.hp <= 0) return;
-    
-    window.gameState.isPaused = !window.gameState.isPaused;
-    
-    if (window.gameState.isPaused) {
-        window.UI.pauseScreen.classList.remove('hidden');
-        window.UI.pauseBtn.textContent = '▶️'; 
-    } else {
-        window.UI.pauseScreen.classList.add('hidden');
-        window.UI.pauseBtn.textContent = '⏸️'; 
-    }
-},
+        if (!window.gameState || window.gameState.hp <= 0) return;
+        
+        window.gameState.isPaused = !window.gameState.isPaused;
+        
+        // Подстраховка: если window.UI.pauseScreen потерялся, пробуем найти его заново по обоим регистрам
+        const pauseScreen = window.UI?.pauseScreen || 
+                            document.getElementById('pauseScreen') || 
+                            document.getElementById('pausescreen');
+                            
+        const pauseBtn = window.UI?.pauseBtn || 
+                          document.getElementById('pauseBtn') || 
+                          document.getElementById('pausebtn');
+        
+        if (window.gameState.isPaused) {
+            if (pauseScreen) pauseScreen.classList.remove('hidden');
+            if (pauseBtn) pauseBtn.textContent = '▶️'; 
+        } else {
+            if (pauseScreen) pauseScreen.classList.add('hidden');
+            if (pauseBtn) pauseBtn.textContent = '⏸️'; 
+        }
+        
+        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+    },
+
 
 
     checkLevelUp() {
@@ -127,10 +139,20 @@ const Game = {
         window.gameState.items = [];
         window.gameState.splashes = [];
         
-        window.UI.pauseScreen.classList.add('hidden');
-        window.UI.pauseBtn.textContent = '⏸️';
-        window.UI.update();
+        const pauseScreen = window.UI?.pauseScreen || 
+                            document.getElementById('pauseScreen') || 
+                            document.getElementById('pausescreen');
+                            
+        const pauseBtn = window.UI?.pauseBtn || 
+                          document.getElementById('pauseBtn') || 
+                          document.getElementById('pausebtn');
+        
+        if (pauseScreen) pauseScreen.classList.add('hidden');
+        if (pauseBtn) pauseBtn.textContent = '⏸️';
+        
+        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
+
 
         setupEvents() {
         // Если вдруг ui.js не успел создать объект UI, собираем его принудительно на лету
