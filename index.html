@@ -6,31 +6,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; style-src * 'unsafe-inline';">
     <title>Sky Survivor</title>
     <link rel="stylesheet" href="style.css">
-
-    <script type="text/javascript">
-        window.onerror = function(message, source, lineno, colno, error) {
-            const errDiv = document.getElementById('debug-crash-screen');
-            if (errDiv) {
-                errDiv.style.display = 'block';
-                errDiv.innerHTML += `<p>❌ <b>КРАШ JS:</b> ${message}<br>Файл: ${source?.split('/').pop()}<br>Строка: ${lineno}:${colno}</p>`;
-            }
-            return false;
-        };
-        window.addEventListener('unhandledrejection', function(event) {
-            const errDiv = document.getElementById('debug-crash-screen');
-            if (errDiv) {
-                errDiv.style.display = 'block';
-                errDiv.innerHTML += `<p>❌ <b>АСИНХ_ОШИБКА:</b> ${event.reason}</p>`;
-            }
-        });
-    </script>
 </head>
 <body>
-
-    <div id="debug-crash-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(20,0,0,0.95); color:#ff3333; z-index:999999; padding:20px; font-family:monospace; font-size:13px; overflow-y:auto; box-sizing:border-box;">
-        <h3 style="color:#ff9900; margin-top:0;">📟 СИСТЕМНЫЙ СБОЙ APK:</h3>
-        <hr style="border-color:#550000;">
-    </div>
 
     <div class="stats-panel">
         <div class="stat-box">🪙 Золото: <span id="gold-val">0</span></div>
@@ -63,36 +40,29 @@
         </button>
     </div>
 
-    <script type="text/javascript" charset="utf-8" src="config.js"></script>
-    <script type="text/javascript" charset="utf-8" src="ui.js"></script>
-    <script type="text/javascript" charset="utf-8" src="engine.js"></script>
-    <script type="text/javascript" charset="utf-8" src="game.js"></script>
+    <script type="text/javascript">
+        window.onerror = function(m, s, l, c) {
+            alert("JS КРАШ: " + m + " на " + l + ":" + c);
+            return false;
+        };
+    </script>
+
+    <script type="text/javascript" src="config.js"></script>
+    <script type="text/javascript" src="ui.js"></script>
+    <script type="text/javascript" src="engine.js"></script>
+    <script type="text/javascript" src="game.js"></script>
+    
     <script type="text/javascript">
         let appReady = false;
-
         function initApp() {
             if (appReady) return;
             appReady = true;
-            
-            const errDiv = document.getElementById('debug-crash-screen');
-            
             if (window.Game && typeof window.Game.start === 'function') {
-                try {
-                    window.Game.start();
-                } catch(e) {
-                    if (errDiv) {
-                        errDiv.style.display = 'block';
-                        errDiv.innerHTML += `<p>❌ <b>Ошибка при Game.start():</b> ${e.message}</p>`;
-                    }
-                }
+                window.Game.start();
             } else {
-                if (errDiv) {
-                    errDiv.style.display = 'block';
-                    errDiv.innerHTML += `<p>❌ <b>Критическая ошибка:</b> window.Game не инициализирован. Скрипты склеились криво или не загрузились вообще.</p>`;
-                }
+                alert("Ошибка: window.Game не найден!");
             }
         }
-        
         document.addEventListener('deviceready', initApp, false);
         document.addEventListener('DOMContentLoaded', initApp, false);
     </script>
