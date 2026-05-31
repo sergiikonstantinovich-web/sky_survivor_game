@@ -2,8 +2,6 @@ const UI = {
     hpBarFill: document.getElementById('hp-bar-fill'),
     goldEl: document.getElementById('gold-val'),
     scoreEl: document.getElementById('score-val'),
-    upgradeBtn: document.getElementById('upgrade-btn'),
-    upgradeCostText: document.getElementById('upgrade-cost-text'),
     pauseBtn: document.getElementById('pause-btn'),
     researchBtn: document.getElementById('research-btn'),
     pauseScreen: document.getElementById('pause-screen'),
@@ -33,13 +31,6 @@ const UI = {
 
         this.goldEl.textContent = window.gameState.gold;
         this.scoreEl.textContent = window.gameState.score;
-        this.upgradeCostText.textContent = `(Цена: ${window.gameState.upgradeCost} 🪙)`;
-
-        if (window.gameState.isShieldActive) {
-            this.upgradeBtn.textContent = `🛡️ ЩИТ АКТИВЕН (${window.gameState.shieldTimer}с)`;
-        } else {
-            if (!window.gameState.isPaused) this.upgradeBtn.textContent = `🔬 Замедлить поток времени`;
-        }
 
         if (window.gameState.hp <= 0) {
             this.hpBarFill.style.width = '0%';

@@ -7,12 +7,12 @@ const Game = {
         if (this.isInitialized) return; 
         this.isInitialized = true; 
 
-        // Железная подстраховка состояния
+        // Железная подстраховка состояния (убрали рудимент upgradeCost)
         if (!window.gameState) {
             window.gameState = {
                 hp: 100, gold: 0, score: 0, currentLevel: 1,
                 isShieldActive: false, shieldTimer: 0, isPaused: false,
-                upgradeCost: 100, items: [], splashes: []
+                items: [], splashes: []
             };
         }
 
@@ -24,7 +24,6 @@ const Game = {
         this.loop();
     },
 
-
     loop() {
         // Если gameState вдруг пропал, не ломаем игру, а просто ждем его на следующем кадре
         if (!window.gameState) {
@@ -32,11 +31,10 @@ const Game = {
             return;
         }
 
-        // Если игра на паузе или ХП кончилось, анимацию холста НЕ останавливаем (чтобы рисовалась пауза/сплэши)
+        // Если игра на паузе или ХП кончилось, анимацию холста НЕ останавливаем
         if (window.gameState.hp > 0 && !window.gameState.isPaused) {
             if (window.Engine) window.Engine.render();
         } else if (window.gameState.isPaused) {
-            // Если пауза, всё равно рендерим, чтобы видеть застывший экран и искры от тапов
             if (window.Engine) window.Engine.render();
         }
 
@@ -86,7 +84,6 @@ const Game = {
         
         window.gameState.isPaused = !window.gameState.isPaused;
         
-        // Подстраховка: если window.UI.pauseScreen потерялся, пробуем найти его заново по обоим регистрам
         const pauseScreen = window.UI?.pauseScreen || 
                             document.getElementById('pauseScreen') || 
                             document.getElementById('pausescreen');
@@ -105,8 +102,6 @@ const Game = {
         
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
-
-
 
     checkLevelUp() {
         if (!window.gameState) return;
@@ -153,26 +148,21 @@ const Game = {
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
 
-
-        setupEvents() {
-        // Если вдруг ui.js не успел создать объект UI, собираем его принудительно на лету
+    setupEvents() {
+        // Если ui.js не успел создать объект UI, собираем его без апгрейд-кнопки
         if (!window.UI) {
             window.UI = {
-                pauseBtn: document.getElementById('pauseBtn'), // проверь, чтобы id в html совпадали!
+                pauseBtn: document.getElementById('pauseBtn'),
                 researchBtn: document.getElementById('researchBtn'),
                 pauseScreen: document.getElementById('pauseScreen'),
-                upgradeBtn: document.getElementById('upgradeBtn'),
                 update: function() { if (typeof updateUI === 'function') updateUI(); }
             };
         }
 
-        // Проверяем, появились ли кнопки в window.UI. Если нет — берем напрямую из HTML document
         const pauseBtn = window.UI.pauseBtn || document.getElementById('pauseBtn');
         const researchBtn = window.UI.researchBtn || document.getElementById('researchBtn');
         const pauseScreen = window.UI.pauseScreen || document.getElementById('pauseScreen');
-        const upgradeBtn = window.UI.upgradeBtn || document.getElementById('upgradeBtn');
 
-        // Вешаем события только если элементы физически найдены в HTML, чтобы билд не падал
         if (pauseBtn) {
             pauseBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
@@ -196,17 +186,6 @@ const Game = {
             });
         }
 
-        if (upgradeBtn) {
-            upgradeBtn.addEventListener('click', () => {
-                if (!window.gameState) return;
-                if (window.gameState.gold >= window.gameState.upgradeCost && window.gameState.hp > 0 && !window.gameState.isPaused) {
-                    window.gameState.gold -= window.gameState.upgradeCost;
-                    window.gameState.upgradeCost += 50;
-                    if (window.UI && typeof window.UI.update === 'function') window.UI.update();
-                }
-            });
-        }
-
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && window.gameState && !window.gameState.isPaused && window.gameState.hp > 0) {
                 this.togglePause();
@@ -215,7 +194,6 @@ const Game = {
         
         this.startTimers();
     }
-
 };
 
 window.Game = Game;
