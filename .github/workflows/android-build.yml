@@ -28,11 +28,46 @@ jobs:
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
-          # 2. Собираем веб-часть в папку www
+          # ========================================================
+          # УМНАЯ СКЛЕЙКА КОДА ДЛЯ ИСПРАВЛЕНИЯ КРАШЕЙ В АПК
+          # ========================================================
+          echo "=== ЗАПУСК УМНОГО СКЛЕЙЩИКА СКРИПТОВ ==="
+          
+          # Проверяем, все ли файлы на месте
+          for file in config.js ui.js engine.js game.js; do
+            if [ ! -f "$file" ]; then
+              echo "КРИТ: Файл $file не найден в репозитории!"
+              exit 1
+            fi
+          done
+          
+          # Объединяем все скрипты в один временный файл
+          cat config.js ui.js engine.js game.js > fullcode.js
+          
+          # Вырезаем теги локальной загрузки и вшиваем монолит
+          node -e "
+            const fs = require('fs');
+            let html = fs.readFileSync('index.html', 'utf8');
+            let code = fs.readFileSync('fullcode.js', 'utf8');
+            
+            const regex = /([\s\S]*?)/;
+            
+            if (regex.test(html)) {
+              html = html.replace(regex, '<script type=\"text/javascript\">' + code + '</script>');
+              console.log('🎉 Локальные скрипты успешно заменены на bundle!');
+            } else {
+              console.log('⚠️ Маркеры не найдены, аварийно вшиваем перед закрытием body...');
+              html = html.replace('</body>', '<script type=\"text/javascript\">' + code + '</script></body>');
+            }
+            fs.writeFileSync('index.html', html, 'utf8');
+          "
+          echo "=== СКЛЕЙКА УСПЕШНО ЗАВЕРШЕНА ==="
+          # ========================================================
+          
+          # 2. Собираем готовую веб-часть в папку www
           mkdir -p www
           cp index.html www/ 2>/dev/null || true
           cp style.css www/ 2>/dev/null || true
-          cp game.js www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
           
           # 3. Инициализируем Capacitor и создаем папку android (БЕЗ ФЛАГА FORCE)
@@ -47,19 +82,16 @@ jobs:
           
           if [ -f resources/icon.png ]; then
             echo "Иконка найдена! Уничтожаем дефолтные xml-маски..."
-            # Удаляем адаптивные xml-иконки, которые принудительно показывают синий робот Capacitor
             find $RES_DIR -name "ic_launcher.xml" -delete || true
             find $RES_DIR -name "ic_launcher_round.xml" -delete || true
             
             echo "Нарезаем новую золотую иконку..."
-            # Квадратные иконки
             convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher.png || true
             convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher.png || true
             convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher.png || true
             convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher.png || true
             convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher.png || true
             
-            # Круглые иконки (для новых Андроидов)
             convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher_round.png || true
             convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher_round.png || true
             convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher_round.png || true
