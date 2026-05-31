@@ -24,49 +24,76 @@ jobs:
 
       - name: Install Dependencies and Build APK
         run: |
-          # 1. Создаем package.json
+          # 1. Создаем package.json чисто для Гитхаба
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
           # ========================================================
-          # БРОНЕБОЙНЫЙ СКЛЕЙЩИК СКРИПТОВ (ЗАМЕНА ПРЯМО В ТЕКСТЕ)
+          # БРОНЕБОЙНЫЙ СКЛЕЙЩИК НА NODE.JS (БЕЗ CAT И BASH-ПРИКОЛОВ)
           # ========================================================
-          echo "=== ЗАПУСК ЖЕСТКОЙ СКЛЕЙКИ ==="
+          echo "=== ЗАПУСК АВТОНОМНОГО СКЛЕЙЩИКА ==="
           
-          # Ищем файлы, игнорируя регистр (nocaseglob)
-          shopt -s nocaseglob
-          REAL_CONFIG=$(ls config.js 2>/dev/null || ls src/config.js 2>/dev/null || echo "config.js")
-          REAL_UI=$(ls ui.js 2>/dev/null || ls src/ui.js 2>/dev/null || echo "ui.js")
-          REAL_ENGINE=$(ls engine.js 2>/dev/null || ls src/engine.js 2>/dev/null || echo "engine.js")
-          REAL_GAME=$(ls game.js 2>/dev/null || ls src/game.js 2>/dev/null || echo "game.js")
-          
-          cat $REAL_CONFIG $REAL_UI $REAL_ENGINE $REAL_GAME > fullcode.js
-          shopt -u nocaseglob
-          
-          # Жестко вырезаем старые теги скриптов и встраиваем монолитный код
           node -e "
             const fs = require('fs');
-            let html = fs.readFileSync('index.html', 'utf8');
-            const code = fs.readFileSync('fullcode.js', 'utf8');
-            
-            // Удаляем ручные вызовы внешних файлов
-            html = html.replace(/<script.*src=\"config\.js\"><\/script>/i, '');
-            html = html.replace(/<script.*src=\"ui\.js\"><\/script>/i, '');
-            html = html.replace(/<script.*src=\"engine\.js\"><\/script>/i, '');
-            
-            // Вместо game.js всаживаем весь наш склеенный код
-            const targetTag = /<script.*src=\"game\.js\"><\/script>/i;
-            if (targetTag.test(html)) {
-              html = html.replace(targetTag, '<script type=\"text/javascript\">' + code + '</script>');
-              console.log('🎉 Скрипты успешно объединены внутрь index.html!');
-            } else {
-              console.log('⚠️ Тег game.js не найден, пишем в конец body');
-              html = html.replace('</body>', '<script type=\"text/javascript\">' + code + '</script></body>');
+            const path = require('path');
+
+            // Функция для поиска файла без учета регистра букв в корне или в src/
+            function findFile(name) {
+                const targets = ['.', 'src'];
+                for (const dir of targets) {
+                    if (!fs.existsSync(dir)) continue;
+                    const files = fs.readdirSync(dir);
+                    const found = files.find(f => f.toLowerCase() === name.toLowerCase());
+                    if (found) return path.join(dir, found);
+                }
+                return null;
             }
+
+            const configPath = findFile('config.js');
+            const uiPath = findFile('ui.js');
+            const enginePath = findFile('engine.js');
+            const gamePath = findFile('game.js');
+
+            console.log('Ищем файлы...');
+            console.log('-> Config:', configPath);
+            console.log('-> UI:', uiPath);
+            console.log('-> Engine:', enginePath);
+            console.log('-> Game:', gamePath);
+
+            if (!configPath || !uiPath || !enginePath || !gamePath) {
+                console.error('КРИТ: Один или несколько JS-файлов не найдены в репозитории!');
+                process.exit(1);
+            }
+
+            // Читаем и склеиваем в один монолит
+            const configCode = fs.readFileSync(configPath, 'utf8');
+            const uiCode = fs.readFileSync(uiPath, 'utf8');
+            const engineCode = fs.readFileSync(enginePath, 'utf8');
+            const gameCode = fs.readFileSync(gamePath, 'utf8');
             
+            const fullCode = configCode + '\n' + uiCode + '\n' + engineCode + '\n' + gameCode;
+
+            // Модифицируем index.html
+            let html = fs.readFileSync('index.html', 'utf8');
+            
+            // Вырезаем старые теги скриптов
+            html = html.replace(/<script.*src=\".*config\.js\"><\/script>/i, '');
+            html = html.replace(/<script.*src=\".*ui\.js\"><\/script>/i, '');
+            html = html.replace(/<script.*src=\".*engine\.js\"><\/script>/i, '');
+            
+            // Вместо game.js вшиваем весь ультимативный код
+            const targetTag = /<script.*src=\".*game\.js\"><\/script>/i;
+            if (targetTag.test(html)) {
+                html = html.replace(targetTag, '<script type=\"text/javascript\">' + fullCode + '</script>');
+                console.log('🎉 Код успешно вшит в тег game.js!');
+            } else {
+                html = html.replace('</body>', '<script type=\"text/javascript\">' + fullCode + '</script></body>');
+                console.log('⚠️ Тег не найден, врезали перед закрывающим body');
+            }
+
             fs.writeFileSync('index.html', html, 'utf8');
+            console.log('=== СКЛЕЙКА ПОЛНОСТЬЮ ЗАВЕРШЕНА ===');
           "
-          echo "=== СКЛЕЙКА ЗАВЕРШЕНА ==="
           # ========================================================
           
           # 2. Собираем готовую веб-часть в папку www
@@ -79,7 +106,7 @@ jobs:
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
           
-          # 4. Устанавливаем imagemagick для иконок
+          # 4. Устанавливаем утилиту для нарезки картинок
           sudo apt-get update && sudo apt-get install -y imagemagick
           
           # 5. Подмена иконок
