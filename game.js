@@ -60,7 +60,6 @@ const Game = {
     },
 
     startTimers() {
-        // Защита от дублирования таймеров при перезапусках
         if (this.intervalId) clearInterval(this.intervalId);
         
         this.intervalId = setInterval(() => {
@@ -72,7 +71,7 @@ const Game = {
                 window.gameState.fever = Math.max(0, (window.gameState.feverDuration / 7) * 100);
                 if (window.gameState.feverDuration <= 0) {
                     window.gameState.isFeverActive = false;
-                    window.BASE_SPEED = 2.5; // Возвращаем скорость
+                    window.BASE_SPEED = 2.5; 
                 }
                 this.updateFeverHud();
             }
@@ -82,7 +81,6 @@ const Game = {
                 if (window.gameState.shieldTimer <= 0) window.gameState.isShieldActive = false;
             } else {
                 let hpLoss = window.LEVEL_CONFIG?.[window.gameState.currentLevel]?.hpLoss || 2;
-                // В режиме ультимейта урон по игроку не идет!
                 if (!window.gameState.isFeverActive) {
                     window.gameState.hp -= hpLoss;
                 }
@@ -101,7 +99,6 @@ const Game = {
         clearTimeout(this.comboTimer);
         window.gameState.combo++;
 
-        // Считаем ранг в зависимости от ударов
         let oldRank = window.gameState.comboRank;
         let c = window.gameState.combo;
 
@@ -111,19 +108,24 @@ const Game = {
         else if (c >= 3) window.gameState.comboRank = 'C';
         else window.gameState.comboRank = 'D';
 
-        // Накопление ультимейта (криты дают больше, обычные тапы по +2)
+        // Накопление ультимейта
         let maxFever = window.COMBAT_CONFIG?.feverMax || 100;
         if (!window.gameState.isFeverActive) {
             window.gameState.fever = Math.min(maxFever, window.gameState.fever + 2.5);
             this.updateFeverHud();
+            
+            // Кнопка полностью готова: включаем неон и показываем текст "Жми!"
             if (window.gameState.fever >= maxFever) {
-                this.activateFeverMode();
+                const ultBtn = document.getElementById('ult-btn');
+                if (ultBtn) {
+                    ultBtn.classList.add('ready');
+                    ultBtn.innerHTML = '<span>Жми!</span>';
+                }
             }
         }
 
         this.updateComboHud(oldRank !== window.gameState.comboRank);
 
-        // Таймер сброса комбо
         let timeout = window.COMBAT_CONFIG?.comboTimeout || 3500;
         this.comboTimer = setTimeout(() => {
             this.resetCombo();
@@ -139,16 +141,27 @@ const Game = {
     },
 
     activateFeverMode() {
+        if (!window.gameState || window.gameState.isFeverActive) return;
+
         window.gameState.isFeverActive = true;
-        window.gameState.feverDuration = 7; // Режим ярости на 7 секунд
-        window.BASE_SPEED = 5.0; // Вся игра ускоряется в 2 раза! Экшен!
+        window.gameState.feverDuration = 7; 
+        window.BASE_SPEED = 2.5; 
+        
+        // МГНОВЕННЫЙ СБРОС КНОПКИ ПРИ НАЖАТИИ:
+        const ultBtn = document.getElementById('ult-btn');
+        if (ultBtn) {
+            ultBtn.classList.remove('ready'); // Тушим неон
+            ultBtn.innerHTML = '';            // Стираем надпись "Жми!"
+        }
+        window.gameState.fever = 0;           // Обнуляем шкалу ульта внутри логики
+        this.updateFeverHud();
+
         if (window.Engine && typeof window.Engine.triggerScreenShake === 'function') {
             window.Engine.triggerScreenShake();
         }
         
-        // Создаем вылетающий текст посреди экрана
         if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
-            window.Engine.createFloatingText(window.innerWidth/2, window.innerHeight/2, "🔥 FEVER MODE ACTIVE!!", true);
+            window.Engine.createFloatingText(window.innerWidth / 2, window.innerHeight / 2, "🔥 БЕРСЕРК АКТИВЕН!!", true);
         }
     },
 
@@ -162,7 +175,6 @@ const Game = {
         comboHud.classList.remove('hidden');
         countEl.textContent = `x${window.gameState.combo}`;
         
-        // Переключаем ранги и стили
         rankEl.textContent = window.gameState.comboRank;
         rankEl.className = `combo-rank rank-${window.gameState.comboRank.toLowerCase()}`;
 
@@ -175,10 +187,18 @@ const Game = {
     updateFeverHud() {
         const bar = document.getElementById('fever-bar-fill');
         if (bar) bar.style.width = `${window.gameState.fever}%`;
+
+        // Защита: если шкала ушла вниз, а кнопка всё ещё горит или имеет текст — принудительно очищаем её
+        if (window.gameState && window.gameState.fever < 100) {
+            const ultBtn = document.getElementById('ult-btn');
+            if (ultBtn) {
+                ultBtn.classList.remove('ready');
+                ultBtn.innerHTML = '';
+            }
+        }
     },
 
     handleItemClick(item) {
-        // Защита: если передали пустой объект или у него нет типа — выходим
         if (!window.gameState || !item || !item.type) return;
 
         const type = item.type;
@@ -195,24 +215,20 @@ const Game = {
         const isBoost = (icon === '⚡' || type === types.BOOST);
         const isMob = (icon === '👾' || type === types.MOB);
 
-        // Любое успешное попадание (кроме мины) качает комбо-метр!
         if (!isMine) {
             this.handleHitCombo();
         }
 
-        // Множитель очков от ранга комбо
         let comboMult = 1;
         if (window.gameState.comboRank === 'C') comboMult = 1.2;
         else if (window.gameState.comboRank === 'B') comboMult = 1.5;
         else if (window.gameState.comboRank === 'A') comboMult = 1.8;
         else if (window.gameState.comboRank === 'S') comboMult = 2.5;
 
-        // ЛОГИКА ДЛЯ КАЖДОГО ТИПА ШАРА (Удаляем строго переданный item)
         if (isGold) {
             let bonus = (window.gameState.research?.goldBonus?.lvl || 0) * 5;
             window.gameState.gold += Math.floor((10 + bonus) * (window.gameState.isFeverActive ? 2 : 1));
             window.gameState.score += Math.floor(5 * comboMult);
-            // Удаляем именно ТОТ шар, на который нажали
             window.gameState.items = window.gameState.items.filter(i => i !== item);
             this.checkLevelUp();
         } 
@@ -239,24 +255,20 @@ const Game = {
             window.gameState.items = window.gameState.items.filter(i => i !== item);
         } 
         else if (isMob) {
-            // Моб теперь получает урон индивидуально!
             if (item.hp !== undefined) {
                 let damage = 1 + (window.gameState.research?.clickPower?.lvl || 0);
                 item.hp -= damage;
 
-                // Цифры летят прямо из этого моба
                 if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
                     window.Engine.createFloatingText(item.x, item.y - 20, `-${damage}`, false);
                 }
 
-                // Если у этого конкретного моба еще есть HP — он продолжает лететь
                 if (item.hp > 0) {
                     if (window.UI && typeof window.UI.update === 'function') window.UI.update();
                     return; 
                 }
             }
 
-            // Моб уничтожен
             window.gameState.score += Math.floor(100 * comboMult);
             window.gameState.gold += (window.gameState.isFeverActive ? 60 : 30);
             window.gameState.items = window.gameState.items.filter(i => i !== item);
@@ -265,8 +277,6 @@ const Game = {
         
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
-
-
 
     togglePause() {
         if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isResearchOpen) return;
@@ -346,6 +356,13 @@ const Game = {
         if (pauseScreen) pauseScreen.classList.add('hidden');
         if (researchScreen) researchScreen.classList.add('hidden');
         if (pauseBtn) pauseBtn.textContent = '⏸️';
+        
+        // Сбрасываем кнопку ульта при перезагрузке сессии
+        const ultBtn = document.getElementById('ult-btn');
+        if (ultBtn) {
+            ultBtn.classList.remove('ready');
+            ultBtn.innerHTML = '';
+        }
         
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },

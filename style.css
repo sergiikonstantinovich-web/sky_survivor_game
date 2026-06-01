@@ -325,3 +325,63 @@ canvas {
     90% { transform: translate(2px, 2px) rotate(0deg); }
     100% { transform: translate(1px, -2px) rotate(-1deg); }
 }
+
+/* Кнопка ультимейта в стиле косого параллелограмма */
+#ult-btn {
+    position: absolute;
+    right: -10px;
+    top: -5px;
+    height: 24px;
+    min-width: 35px; /* Задаем базовый размер пустого среза */
+    background: #7b1fa2;
+    color: #ffffff;
+    font-family: sans-serif;
+    font-weight: bold;
+    font-size: 12px;
+    text-transform: uppercase;
+    border: 2px solid #9c27b0;
+    transform: skewX(-20deg);
+    transition: all 0.2s ease; /* Чуть ускорим анимацию возврата */
+    opacity: 0.6;
+    pointer-events: none;
+    box-shadow: 0 0 5px rgba(156, 39, 176, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* Текст внутри выравниваем обратно, чтобы он не косил */
+#ult-btn span {
+    display: inline-block;
+    transform: skewX(20deg);
+}
+
+/* Состояние НАПОЛНЕННОЙ кнопкой (когда можно прожать ульт) */
+#ult-btn.ready {
+    opacity: 1;
+    pointer-events: auto; /* Разрешаем клики */
+    background: #9c27b0;
+    border-color: #e040fb;
+    animation: ultPulse 1.2s infinite alternate; /* Неоновый пульс */
+    cursor: pointer;
+}
+
+/* Анимация ядовитого неонового свечения */
+@keyframes ultPulse {
+    0% {
+        box-shadow: 0 0 8px #9c27b0, inset 0 0 4px #e040fb;
+        text-shadow: 0 0 2px #fff;
+    }
+    100% {
+        box-shadow: 0 0 22px #e040fb, inset 0 0 10px #9c27b0;
+        text-shadow: 0 0 8px #fff, 0 0 12px #e040fb;
+        transform: skewX(-20deg) scale(1.05); /* Слегка пульсирует в размерах */
+    }
+}
+
+/* Эффект при самом нажатии */
+#ult-btn.ready:active {
+    transform: skewX(-20deg) scale(0.95);
+    background: #e040fb;
+}
