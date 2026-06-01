@@ -14,5 +14,6 @@ window.TYPES = {
     HEAL:   { icon: '❤️', color: '#4caf50', radius: 22 },
     SHIELD: { icon: '🛡️', color: '#2196f3', radius: 24 },
     BOOST:  { icon: '⚡', color: '#ff9800', radius: 22 },
-    MINE:   { icon: '💥', color: '#f44336', radius: 22 }
+    MINE:   { icon: '💥', color: '#f44336', radius: 22 }, 
+    MOB:    { icon: '👾', color: '#9c27b0', radius: 55 } // Наш новый жирный моб
 };

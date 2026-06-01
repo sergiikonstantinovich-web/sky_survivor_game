@@ -12,6 +12,7 @@ const Game = {
                 isShieldActive: false, shieldTimer: 0, isPaused: false,
                 isResearchOpen: false, // Новый флаг для отслеживания Лаборатории
                 items: [], splashes: [],
+                    floatingTexts: [],
                 research: {
                     clickPower: { lvl: 0, max: 5, cost: 40 },      
                     goldBonus: { lvl: 0, max: 5, cost: 50 },       
@@ -92,6 +93,11 @@ const Game = {
             window.gameState.score += 50; 
         } else if (type === window.TYPES.MINE) {
             window.gameState.hp -= 25; 
+        } else if (type === window.TYPES.MOB) {
+            // Награда за уничтожение жирного моба!
+            window.gameState.score += 100;
+            window.gameState.gold += 30;
+            this.checkLevelUp();
         }
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
@@ -163,7 +169,7 @@ const Game = {
         window.gameState.isResearchOpen = false;
         window.gameState.items = [];
         window.gameState.splashes = [];
-        
+        window.gameState.floatingTexts = [];
         // Сброс дерева лаборатории
         window.gameState.research = {
             clickPower: { lvl: 0, max: 5, cost: 40 },

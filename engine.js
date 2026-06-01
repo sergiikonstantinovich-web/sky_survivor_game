@@ -18,7 +18,6 @@ const Engine = {
     },
 
     spawnItem() {
-        // Кэшируем конфигурацию - проверяем только раз в 1000ms
         const now = Date.now();
         if (!this._cachedConfig || now - this._lastConfigCheck > 1000) {
             this._cachedConfig = this._getConfig();
@@ -31,10 +30,9 @@ const Engine = {
         if (Math.random() > config.spawnRate) return;
 
         let newX = Math.random() * (this.canvas.width - 60) + 30;
-        const newY = this.canvas.height + 50;
-        const minSafeDistance = 65;
+        const newY = this.canvas.height + 60; // Чуть ниже, т.к. моб большой
+        const minSafeDistance = 75;
 
-        // Оптимизация: используем for...of вместо for с индексом
         for (const existingItem of window.gameState.items) {
             if (existingItem.y > this.canvas.height - 100) {
                 if (Math.abs(newX - existingItem.x) < minSafeDistance) return;
@@ -53,17 +51,27 @@ const Engine = {
             }
         }
 
+        // Шансы выпадения: моб забирает последние 1.5% шанса
         if (finalRand < 0.45) type = config.types.GOLD;
         else if (finalRand < 0.45 + mineChance) type = config.types.MINE;
         else if (finalRand < 0.94) type = config.types.HEAL;
         else if (finalRand < 0.97) type = config.types.BOOST;
-        else type = config.types.SHIELD;
+        else if (finalRand < 0.985) type = config.types.SHIELD;
+        else type = config.types.MOB;
 
-        window.gameState.items.push({ x: newX, y: newY, speed: config.baseSpeed, type: type });
+        let newItem = { x: newX, y: newY, speed: config.baseSpeed, type: type };
+        
+        // Если это моб, даем ему здоровье
+        if (type === config.types.MOB) {
+            newItem.hp = 10; 
+            newItem.maxHp = 10;
+        }
+
+        window.gameState.items.push(newItem);
     },
 
     // Вынесена логика получения конфигурации в отдельный метод
-    _getConfig() {
+ _getConfig() {
         if (!window.LEVEL_CONFIG) {
             window.LEVEL_CONFIG = {
                 1: { name: "🚀 Волна 1: Мирное небо", targetScore: 100, hpLoss: 2, spawnRate: 0.03, mineChance: 0.4 },
@@ -77,7 +85,8 @@ const Engine = {
                 HEAL:   { icon: '❤️', color: '#4caf50', radius: 22 },
                 SHIELD: { icon: '🛡️', color: '#2196f3', radius: 24 },
                 BOOST:  { icon: '⚡', color: '#ff9800', radius: 22 },
-                MINE:   { icon: '💥', color: '#f44336', radius: 22 }
+                MINE:   { icon: '💥', color: '#f44336', radius: 22 },
+                MOB:    { icon: '👾', color: '#9c27b0', radius: 55 }
             };
         }
 
@@ -109,6 +118,20 @@ const Engine = {
             });
         }
     },
+    createFloatingText(x, y, text) {
+        if (!window.gameState) return;
+        if (!window.gameState.floatingTexts) window.gameState.floatingTexts = [];
+        
+        // Добавляем небольшой рандом по оси X, чтобы цифры не слипались при быстром тапе
+        const offsetX = (Math.random() - 0.5) * 30; 
+        window.gameState.floatingTexts.push({
+            x: x + offsetX, 
+            y: y - 20, 
+            text: text, 
+            alpha: 1, 
+            vy: -1.5 // Скорость полета текста вверх
+        });
+    },
 
     render() {
         if (!window.gameState) return;
@@ -117,12 +140,10 @@ const Engine = {
         
         const isGameActive = !window.gameState.isPaused && !window.gameState.isResearchOpen;
 
-        // Генерируем новые шарики только если игра активна
         if (isGameActive) {
             this.spawnItem();
         }
 
-        // Отрисовка летящих фигур
         const items = window.gameState.items;
         for (let i = items.length - 1; i >= 0; i--) {
             const item = items[i];
@@ -144,10 +165,16 @@ const Engine = {
             this.ctx.textBaseline = "middle";
             this.ctx.fillText(item.type.icon, item.x, item.y);
 
-            if (item.y < -50) items.splice(i, 1);
+            // Если это моб, можно опционально нарисовать его ХП прямо на нем (по желанию)
+            if (item.type === this._cachedConfig?.types.MOB && item.hp) {
+                this.ctx.font = "14px sans-serif";
+                this.ctx.fillStyle = "#fff";
+                this.ctx.fillText(`${item.hp}/${item.maxHp}`, item.x, item.y + 25);
+            }
+
+            if (item.y < -80) items.splice(i, 1); // Увеличили порог удаления из-за большого радиуса
         }
 
-        // Отрисовка сплэш-искр
         const splashes = window.gameState.splashes;
         for (let i = splashes.length - 1; i >= 0; i--) {
             const p = splashes[i];
@@ -173,9 +200,41 @@ const Engine = {
             this.ctx.fill();
             this.ctx.restore();
         }
+
+        // --- НОВОЕ: Отрисовка вылетающего текста ---
+        if (window.gameState.floatingTexts) {
+            const fts = window.gameState.floatingTexts;
+            for (let i = fts.length - 1; i >= 0; i--) {
+                const ft = fts[i];
+                
+                if (isGameActive) {
+                    ft.y += ft.vy;
+                    ft.alpha -= 0.03; // Скорость исчезновения текста
+                }
+
+                if (ft.alpha <= 0) {
+                    fts.splice(i, 1);
+                    continue;
+                }
+
+                this.ctx.save();
+                this.ctx.globalAlpha = ft.alpha;
+                this.ctx.font = "bold 22px sans-serif";
+                this.ctx.textAlign = "center";
+                this.ctx.fillStyle = "#ff3366"; // Красно-розовый цвет урона
+                
+                // Делаем белую обводку для читаемости на любом фоне
+                this.ctx.strokeStyle = "#ffffff";
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeText(ft.text, ft.x, ft.y);
+                this.ctx.fillText(ft.text, ft.x, ft.y);
+                this.ctx.restore();
+            }
+        }
     },
 
-    setupTouches() {
+
+    setupTouches(){
         this.canvas.addEventListener('touchstart', (e) => {
             if (!window.gameState || window.gameState.hp <= 0 || 
                 window.gameState.isPaused || window.gameState.isResearchOpen) return;
@@ -196,8 +255,25 @@ const Engine = {
                 if (dist < item.type.radius + 18) {
                     this.createSplash(item.x, item.y, '#ff2222');
 
-                    if (window.Game) window.Game.handleItemClick(item.type);
-                    items.splice(i, 1);
+                    // Проверяем, моб ли это
+                    if (item.type === this._cachedConfig?.types.MOB) {
+                        // Считаем урон (базовый 1 + прокачка из Лаборатории)
+                        let damage = 1 + (window.gameState.research?.clickPower?.lvl || 0);
+                        item.hp -= damage;
+                        
+                        // Запускаем анимацию вылетающего текста
+                        this.createFloatingText(item.x, item.y - item.type.radius, `-${damage}`);
+
+                        // Убиваем моба, только если ХП упало до нуля
+                        if (item.hp <= 0) {
+                            if (window.Game) window.Game.handleItemClick(item.type);
+                            items.splice(i, 1);
+                        }
+                    } else {
+                        // Обычные шарики лопаются с одного удара
+                        if (window.Game) window.Game.handleItemClick(item.type);
+                        items.splice(i, 1);
+                    }
                     break;
                 }
             }
