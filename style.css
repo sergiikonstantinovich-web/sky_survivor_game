@@ -164,7 +164,9 @@ canvas {
 /* Класс-заглушка для скрытия элементов */
 .hidden {
     display: none !important;
+    pointer-events: none !important;
 }
+
 /* Эффект заморозки для контейнера полоски (иней/свечение вокруг) */
 .hp-bar-container.frozen-active {
     border-color: #00d2ff;
@@ -176,4 +178,150 @@ canvas {
 .hp-bar-fill.frozen-fill {
     background: linear-gradient(90deg, #00f0ff, #00a8ff) !important;
     box-shadow: 0 0 10px #00f0ff !important;
+}
+
+
+
+
+/* Модификация экрана лаборатории под вертикальное дерево */
+#research-screen .pause-content {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    background: rgba(10, 10, 15, 0.98) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+/* Скролл-бокс строго по оси Y, защищен от провалов */
+.tech-tree-scroll-wrapper {
+    flex-grow: 1;
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 0px 40px 0px; 
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Компактная кнопка-плитка исследования */
+.tech-node-btn {
+    width: 76px;
+    height: 54px;
+    background: linear-gradient(135deg, #2b2b36, #1f1f26);
+    border: 2px solid #4e4e5a;
+    border-radius: 6px;
+    color: #fff;
+    font-family: sans-serif;
+    cursor: pointer;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.6);
+    transition: all 0.1s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 2px;
+}
+
+/* Стили текста внутри плитки */
+.tech-node-btn .node-label {
+    font-size: 9px;
+    font-weight: bold;
+    line-height: 1.1;
+    margin-bottom: 2px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-node-btn .node-cost {
+    font-size: 8px;
+    color: #ffd700;
+}
+
+/* Эффект нажатия */
+.tech-node-btn:active {
+    transform: scale(0.95);
+    border-color: #ffd700;
+    background: #3a3a4a;
+}
+
+
+
+/* Контейнер для комбо-ранга под полоской ХП */
+.combo-container {
+    position: absolute;
+    top: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    pointer-events: none;
+    font-family: 'Impact', 'Arial Black', sans-serif;
+    font-weight: bold; /* Подстраховка для дефолтных шрифтов */
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+
+/* Буква ранга (D, C, B, A, S) */
+.combo-rank {
+    font-size: 28px;
+    font-weight: 900;
+    display: inline-block;
+    letter-spacing: 1px;
+    transition: all 0.1s ease;
+}
+
+/* Динамические цвета для каждого ранга стиля */
+.rank-d { color: #9e9e9e; text-shadow: 0 0 5px #9e9e9e; } /* Dirty */
+
+.rank-c { color: #4caf50; text-shadow: 0 0 8px #4caf50; } /* Cool */
+.rank-b { color: #2196f3; text-shadow: 0 0 10px #2196f3; } /* Brutal */
+.rank-a { color: #ff9800; text-shadow: 0 0 12px #ff9800; } /* Anarchic */
+.rank-s { color: #f44336; text-shadow: 0 0 15px #f44336; } /* Savage! */
+
+/* Счётчик ударов рядом с рангом */
+.combo-count {
+    font-size: 14px;
+    color: #fff;
+    margin-left: 5px;
+    text-shadow: 0 0 4px #000;
+}
+
+/* Анимация вспышки при смене ранга */
+@keyframes rank-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4); filter: brightness(1.5); }
+    100% { transform: scale(1); }
+}
+.rank-up-anim {
+    animation: rank-pop 0.2s ease-out;
+}
+
+/* Класс для тряски всего экрана */
+.shake-active {
+    position: relative; /* Фиксирует контейнер в своей системе координат перед тряской */
+    animation: screen-shake-anim 0.15s infinite;
+}
+
+
+@keyframes screen-shake-anim {
+    0% { transform: translate(1px, 1px) rotate(0deg); }
+    10% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20% { transform: translate(-3px, 0px) rotate(1deg); }
+    30% { transform: translate(0px, 2px) rotate(0deg); }
+    40% { transform: translate(1px, -1px) rotate(1deg); }
+    50% { transform: translate(-1px, 2px) rotate(-1deg); }
+    60% { transform: translate(-3px, 1px) rotate(0deg); }
+    70% { transform: translate(2px, 1px) rotate(-1deg); }
+    80% { transform: translate(-1px, -1px) rotate(1deg); }
+    90% { transform: translate(2px, 2px) rotate(0deg); }
+    100% { transform: translate(1px, -2px) rotate(-1deg); }
 }

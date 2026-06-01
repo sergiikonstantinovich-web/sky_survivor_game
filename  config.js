@@ -15,5 +15,13 @@ window.TYPES = {
     SHIELD: { icon: '🛡️', color: '#2196f3', radius: 24 },
     BOOST:  { icon: '⚡', color: '#ff9800', radius: 22 },
     MINE:   { icon: '💥', color: '#f44336', radius: 22 }, 
-    MOB:    { icon: '👾', color: '#9c27b0', radius: 55 } // Наш новый жирный моб
+    MOB:    { icon: '👾', color: '#9c27b0', radius: 55 } 
+};
+
+// --- КОНФИГ КРИТОВ И КОМБО DMC ---
+window.COMBAT_CONFIG = {
+    critChance: 0.15, // 15% базовый шанс крита
+    critMultiplier: 2.5, // Критический урон х2.5
+    comboTimeout: 2000, // Время сброса комбо (2 секунды)
+    feverMax: 100 // Максимум шкалы ярости
 };

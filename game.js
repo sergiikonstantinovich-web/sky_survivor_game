@@ -1,6 +1,7 @@
 const Game = {
     animationFrameId: null,
     isInitialized: false,
+    comboTimer: null,
 
     start() {
         if (this.isInitialized) return; 
@@ -10,9 +11,16 @@ const Game = {
             window.gameState = {
                 hp: 100, gold: 0, score: 0, currentLevel: 1,
                 isShieldActive: false, shieldTimer: 0, isPaused: false,
-                isResearchOpen: false, // Новый флаг для отслеживания Лаборатории
-                items: [], splashes: [],
-                    floatingTexts: [],
+                isResearchOpen: false,
+                items: [], splashes: [], floatingTexts: [],
+                
+                // Элементы сочности
+                combo: 0,
+                comboRank: 'D',
+                fever: 0,
+                isFeverActive: false,
+                feverDuration: 0,
+
                 research: {
                     clickPower: { lvl: 0, max: 5, cost: 40 },      
                     goldBonus: { lvl: 0, max: 5, cost: 50 },       
@@ -27,46 +35,57 @@ const Game = {
         
         this.loop();
     },
+
     loop() {
         if (!window.gameState) {
             Game.animationFrameId = requestAnimationFrame(() => Game.loop());
             return;
         }
 
-        // КРИТИЧЕСКИЙ ФИКС: Если игрок умер
         if (window.gameState.hp <= 0) {
             if (!window.gameState.isPaused) {
-                window.gameState.isPaused = true; // Тормозим логику таймеров
-                
+                window.gameState.isPaused = true;
                 setTimeout(() => {
                     alert(`💀 ИГРА ОКОНЧЕНА!\nВы набрали очков: ${window.gameState.score}`);
                     this.resetGame();
                 }, 10);
             }
-            
             if (window.Engine) window.Engine.render();
             Game.animationFrameId = requestAnimationFrame(() => Game.loop());
             return;
         }
 
-        // Отрисовка кадра (Движок внутри себя в движении шариков проверит и паузу, и лабораторию)
         if (window.Engine) window.Engine.render();
-
         Game.animationFrameId = requestAnimationFrame(() => Game.loop());
     },
 
-
-
     startTimers() {
-        setInterval(() => {
+        // Защита от дублирования таймеров при перезапусках
+        if (this.intervalId) clearInterval(this.intervalId);
+        
+        this.intervalId = setInterval(() => {
             if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isPaused || window.gameState.isResearchOpen) return; 
             
+            // Логика Ультимейта (Fever Mode)
+            if (window.gameState.isFeverActive) {
+                window.gameState.feverDuration--;
+                window.gameState.fever = Math.max(0, (window.gameState.feverDuration / 7) * 100);
+                if (window.gameState.feverDuration <= 0) {
+                    window.gameState.isFeverActive = false;
+                    window.BASE_SPEED = 2.5; // Возвращаем скорость
+                }
+                this.updateFeverHud();
+            }
+
             if (window.gameState.isShieldActive) {
                 window.gameState.shieldTimer--;
                 if (window.gameState.shieldTimer <= 0) window.gameState.isShieldActive = false;
             } else {
                 let hpLoss = window.LEVEL_CONFIG?.[window.gameState.currentLevel]?.hpLoss || 2;
-                window.gameState.hp -= hpLoss; 
+                // В режиме ультимейта урон по игроку не идет!
+                if (!window.gameState.isFeverActive) {
+                    window.gameState.hp -= hpLoss;
+                }
             }
             
             window.gameState.score += 1; 
@@ -75,37 +94,182 @@ const Game = {
         }, 1000);
     },
 
-    handleItemClick(type) {
+    // Механика нарастания комбо DMC
+    handleHitCombo() {
         if (!window.gameState) return;
 
-        if (type === window.TYPES.GOLD) {
+        clearTimeout(this.comboTimer);
+        window.gameState.combo++;
+
+        // Считаем ранг в зависимости от ударов
+        let oldRank = window.gameState.comboRank;
+        let c = window.gameState.combo;
+
+        if (c >= 25) window.gameState.comboRank = 'S';
+        else if (c >= 15) window.gameState.comboRank = 'A';
+        else if (c >= 8) window.gameState.comboRank = 'B';
+        else if (c >= 3) window.gameState.comboRank = 'C';
+        else window.gameState.comboRank = 'D';
+
+        // Накопление ультимейта (криты дают больше, обычные тапы по +2)
+        let maxFever = window.COMBAT_CONFIG?.feverMax || 100;
+        if (!window.gameState.isFeverActive) {
+            window.gameState.fever = Math.min(maxFever, window.gameState.fever + 2.5);
+            this.updateFeverHud();
+            if (window.gameState.fever >= maxFever) {
+                this.activateFeverMode();
+            }
+        }
+
+        this.updateComboHud(oldRank !== window.gameState.comboRank);
+
+        // Таймер сброса комбо
+        let timeout = window.COMBAT_CONFIG?.comboTimeout || 3500;
+        this.comboTimer = setTimeout(() => {
+            this.resetCombo();
+        }, timeout);
+    },
+
+    resetCombo() {
+        if (!window.gameState) return;
+        window.gameState.combo = 0;
+        window.gameState.comboRank = 'D';
+        const comboHud = document.getElementById('combo-hud');
+        if (comboHud) comboHud.classList.add('hidden');
+    },
+
+    activateFeverMode() {
+        window.gameState.isFeverActive = true;
+        window.gameState.feverDuration = 7; // Режим ярости на 7 секунд
+        window.BASE_SPEED = 5.0; // Вся игра ускоряется в 2 раза! Экшен!
+        if (window.Engine && typeof window.Engine.triggerScreenShake === 'function') {
+            window.Engine.triggerScreenShake();
+        }
+        
+        // Создаем вылетающий текст посреди экрана
+        if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
+            window.Engine.createFloatingText(window.innerWidth/2, window.innerHeight/2, "🔥 FEVER MODE ACTIVE!!", true);
+        }
+    },
+
+    updateComboHud(isRankUp) {
+        const comboHud = document.getElementById('combo-hud');
+        const rankEl = document.getElementById('combo-rank');
+        const countEl = document.getElementById('combo-count');
+
+        if (!comboHud || !rankEl || !countEl) return;
+
+        comboHud.classList.remove('hidden');
+        countEl.textContent = `x${window.gameState.combo}`;
+        
+        // Переключаем ранги и стили
+        rankEl.textContent = window.gameState.comboRank;
+        rankEl.className = `combo-rank rank-${window.gameState.comboRank.toLowerCase()}`;
+
+        if (isRankUp) {
+            rankEl.classList.add('rank-up-anim');
+            setTimeout(() => rankEl.classList.remove('rank-up-anim'), 200);
+        }
+    },
+
+    updateFeverHud() {
+        const bar = document.getElementById('fever-bar-fill');
+        if (bar) bar.style.width = `${window.gameState.fever}%`;
+    },
+
+    handleItemClick(item) {
+        // Защита: если передали пустой объект или у него нет типа — выходим
+        if (!window.gameState || !item || !item.type) return;
+
+        const type = item.type;
+        const icon = type.icon;
+        
+        const types = window.TYPES || {
+            GOLD: '🪙', MINE: '💥', HEAL: '❤️', BOOST: '⚡', SHIELD: '🛡️', MOB: '👾'
+        };
+
+        const isMine = (icon === '💥' || type === types.MINE);
+        const isGold = (icon === '🪙' || type === types.GOLD);
+        const isHeal = (icon === '❤️' || type === types.HEAL);
+        const isShield = (icon === '🛡️' || type === types.SHIELD);
+        const isBoost = (icon === '⚡' || type === types.BOOST);
+        const isMob = (icon === '👾' || type === types.MOB);
+
+        // Любое успешное попадание (кроме мины) качает комбо-метр!
+        if (!isMine) {
+            this.handleHitCombo();
+        }
+
+        // Множитель очков от ранга комбо
+        let comboMult = 1;
+        if (window.gameState.comboRank === 'C') comboMult = 1.2;
+        else if (window.gameState.comboRank === 'B') comboMult = 1.5;
+        else if (window.gameState.comboRank === 'A') comboMult = 1.8;
+        else if (window.gameState.comboRank === 'S') comboMult = 2.5;
+
+        // ЛОГИКА ДЛЯ КАЖДОГО ТИПА ШАРА (Удаляем строго переданный item)
+        if (isGold) {
             let bonus = (window.gameState.research?.goldBonus?.lvl || 0) * 5;
-            window.gameState.gold += (10 + bonus);
-            window.gameState.score += 5;
+            window.gameState.gold += Math.floor((10 + bonus) * (window.gameState.isFeverActive ? 2 : 1));
+            window.gameState.score += Math.floor(5 * comboMult);
+            // Удаляем именно ТОТ шар, на который нажали
+            window.gameState.items = window.gameState.items.filter(i => i !== item);
             this.checkLevelUp();
-        } else if (type === window.TYPES.HEAL) {
+        } 
+        else if (isHeal) {
             window.gameState.hp = Math.min(100, window.gameState.hp + 25);
-        } else if (type === window.TYPES.SHIELD) {
+            window.gameState.items = window.gameState.items.filter(i => i !== item);
+        } 
+        else if (isShield) {
             window.gameState.isShieldActive = true;
             let extraTime = (window.gameState.research?.shieldDuration?.lvl || 0) * 2;
             window.gameState.shieldTimer += (6 + extraTime); 
-        } else if (type === window.TYPES.BOOST) {
-            window.gameState.score += 50; 
-        } else if (type === window.TYPES.MINE) {
-            window.gameState.hp -= 25; 
-        } else if (type === window.TYPES.MOB) {
-            // Награда за уничтожение жирного моба!
-            window.gameState.score += 100;
-            window.gameState.gold += 30;
+            window.gameState.items = window.gameState.items.filter(i => i !== item);
+        } 
+        else if (isBoost) {
+            window.gameState.score += Math.floor(50 * comboMult); 
+            window.gameState.items = window.gameState.items.filter(i => i !== item);
+        } 
+        else if (isMine) {
+            this.resetCombo(); 
+            if (window.Engine && typeof window.Engine.triggerScreenShake === 'function') {
+                window.Engine.triggerScreenShake(); 
+            }
+            if (!window.gameState.isFeverActive) window.gameState.hp -= 25; 
+            window.gameState.items = window.gameState.items.filter(i => i !== item);
+        } 
+        else if (isMob) {
+            // Моб теперь получает урон индивидуально!
+            if (item.hp !== undefined) {
+                let damage = 1 + (window.gameState.research?.clickPower?.lvl || 0);
+                item.hp -= damage;
+
+                // Цифры летят прямо из этого моба
+                if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
+                    window.Engine.createFloatingText(item.x, item.y - 20, `-${damage}`, false);
+                }
+
+                // Если у этого конкретного моба еще есть HP — он продолжает лететь
+                if (item.hp > 0) {
+                    if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+                    return; 
+                }
+            }
+
+            // Моб уничтожен
+            window.gameState.score += Math.floor(100 * comboMult);
+            window.gameState.gold += (window.gameState.isFeverActive ? 60 : 30);
+            window.gameState.items = window.gameState.items.filter(i => i !== item);
             this.checkLevelUp();
         }
+        
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
 
-    // КЛАССИЧЕСКАЯ ПАУЗА (ОКНО СПРАВА)
+
+
     togglePause() {
         if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isResearchOpen) return;
-        
         window.gameState.isPaused = !window.gameState.isPaused;
         const pauseScreen = document.getElementById('pause-screen');
         const pauseBtn = document.getElementById('pause-btn');
@@ -117,102 +281,85 @@ const Game = {
             if (pauseScreen) pauseScreen.classList.add('hidden');
             if (pauseBtn) pauseBtn.textContent = '⏸️'; 
         }
-        
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
 
-    // ЛАБОРАТОРИЯ ИССЛЕДОВАНИЙ (ОКНО СЛЕВА)
     toggleResearch() {
         if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isPaused) return;
-
         window.gameState.isResearchOpen = !window.gameState.isResearchOpen;
         const researchScreen = document.getElementById('research-screen');
-        
         if (window.gameState.isResearchOpen) {
             if (researchScreen) researchScreen.classList.remove('hidden');
         } else {
             if (researchScreen) researchScreen.classList.add('hidden');
         }
-
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
 
     checkLevelUp() {
         if (!window.gameState) return;
-
         let config = window.LEVEL_CONFIG?.[window.gameState.currentLevel];
         if (!config) return;
 
         if (window.gameState.score >= config.targetScore && window.LEVEL_CONFIG?.[window.gameState.currentLevel + 1]) {
             window.gameState.currentLevel++;
             let nextConfig = window.LEVEL_CONFIG[window.gameState.currentLevel];
-            
             window.gameState.gold += 50;
             window.gameState.hp = Math.min(100, window.gameState.hp + 20);
             
-            alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}\nБонус: +50 и +20 ХП`);
+            alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}`);
             if (window.UI && typeof window.UI.update === 'function') window.UI.update();
         }
     },
 
- resetGame() {
+    resetGame() {
         if (!window.gameState) return;
-
-        // Полный сброс всех параметров к стартовым
         window.gameState.currentLevel = 1;
         window.gameState.hp = 100;
         window.gameState.gold = 0;
         window.gameState.score = 0;
         window.gameState.isShieldActive = false;
         window.gameState.shieldTimer = 0;
-        window.gameState.isPaused = false; // Снимаем паузу смерти!
+        window.gameState.isPaused = false;
         window.gameState.isResearchOpen = false;
         window.gameState.items = [];
         window.gameState.splashes = [];
         window.gameState.floatingTexts = [];
-        // Сброс дерева лаборатории
+        
+        this.resetCombo();
+        window.gameState.fever = 0;
+        window.gameState.isFeverActive = false;
+        window.gameState.feverDuration = 0;
+        this.updateFeverHud();
+        window.BASE_SPEED = 2.5;
+
         window.gameState.research = {
             clickPower: { lvl: 0, max: 5, cost: 40 },
             goldBonus: { lvl: 0, max: 5, cost: 50 },
             shieldDuration: { lvl: 0, max: 5, cost: 60 }
         };
         
-        // Скрываем экраны, если они были открыты
-        const pauseScreen = document.getElementById('pause-screen') || document.getElementById('pauseScreen');
-        const researchScreen = document.getElementById('research-screen') || document.getElementById('researchScreen');
-        const pauseBtn = document.getElementById('pause-btn') || document.getElementById('pauseBtn');
+        const pauseScreen = document.getElementById('pause-screen');
+        const researchScreen = document.getElementById('research-screen');
+        const pauseBtn = document.getElementById('pause-btn');
         
         if (pauseScreen) pauseScreen.classList.add('hidden');
         if (researchScreen) researchScreen.classList.add('hidden');
         if (pauseBtn) pauseBtn.textContent = '⏸️';
         
-        // Обновляем интерфейс, чтобы игрок увидел 100 ХП и 0 золота
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
 
     setupEvents() {
-        const pauseBtn = document.getElementById('pause-btn') || document.getElementById('pauseBtn');
-        const researchBtn = document.getElementById('research-btn') || document.getElementById('researchBtn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const researchBtn = document.getElementById('research-btn');
 
-        if (pauseBtn) {
-            pauseBtn.onclick = (e) => {
-                e.stopPropagation(); 
-                this.togglePause();
-            };
-        }
-
-        if (researchBtn) {
-            researchBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.toggleResearch();
-            };
-        }
+        if (pauseBtn) pauseBtn.onclick = (e) => { e.stopPropagation(); this.togglePause(); };
+        if (researchBtn) researchBtn.onclick = (e) => { e.stopPropagation(); this.toggleResearch(); };
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && window.gameState && window.gameState.hp > 0) {
-                if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
-                    this.togglePause();
-                }
+                if (!window.gameState.isPaused && !window.gameState.isResearchOpen) this.togglePause();
             }
         });
         
