@@ -26,7 +26,6 @@ const Game = {
         
         this.loop();
     },
-    
     loop() {
         if (!window.gameState) {
             Game.animationFrameId = requestAnimationFrame(() => Game.loop());

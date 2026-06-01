@@ -2,6 +2,10 @@ const Engine = {
     canvas: document.getElementById('gameCanvas'),
     ctx: document.getElementById('gameCanvas').getContext('2d'),
 
+    // Кэшируем часто используемые значения
+    _cachedConfig: null,
+    _lastConfigCheck: 0,
+
     init() {
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
@@ -14,7 +18,52 @@ const Engine = {
     },
 
     spawnItem() {
-        // ПОДСТРАХОВКА: Если config.js не загрузился, принудительно создаем конфиги в window
+        // Кэшируем конфигурацию - проверяем только раз в 1000ms
+        const now = Date.now();
+        if (!this._cachedConfig || now - this._lastConfigCheck > 1000) {
+            this._cachedConfig = this._getConfig();
+            this._lastConfigCheck = now;
+        }
+
+        if (!window.gameState) return;
+
+        const config = this._cachedConfig;
+        if (Math.random() > config.spawnRate) return;
+
+        let newX = Math.random() * (this.canvas.width - 60) + 30;
+        const newY = this.canvas.height + 50;
+        const minSafeDistance = 65;
+
+        // Оптимизация: используем for...of вместо for с индексом
+        for (const existingItem of window.gameState.items) {
+            if (existingItem.y > this.canvas.height - 100) {
+                if (Math.abs(newX - existingItem.x) < minSafeDistance) return;
+            }
+        }
+
+        const rand = Math.random();
+        let type;
+        let mineChance = config.mineChance;
+        let finalRand = rand;
+
+        if (window.gameState.hp < 30) {
+            mineChance = mineChance / 2;
+            if (rand >= 0.45 && rand < 0.45 + (mineChance * 2)) {
+                if (Math.random() > 0.5) finalRand = 0.90;
+            }
+        }
+
+        if (finalRand < 0.45) type = config.types.GOLD;
+        else if (finalRand < 0.45 + mineChance) type = config.types.MINE;
+        else if (finalRand < 0.94) type = config.types.HEAL;
+        else if (finalRand < 0.97) type = config.types.BOOST;
+        else type = config.types.SHIELD;
+
+        window.gameState.items.push({ x: newX, y: newY, speed: config.baseSpeed, type: type });
+    },
+
+    // Вынесена логика получения конфигурации в отдельный метод
+    _getConfig() {
         if (!window.LEVEL_CONFIG) {
             window.LEVEL_CONFIG = {
                 1: { name: "🚀 Волна 1: Мирное небо", targetScore: 100, hpLoss: 2, spawnRate: 0.03, mineChance: 0.4 },
@@ -32,83 +81,59 @@ const Engine = {
             };
         }
 
-        if (!window.gameState) return;
-
-        let currentSpawnRate = window.LEVEL_CONFIG[window.gameState.currentLevel]?.spawnRate || 0.03;
-        if (Math.random() > currentSpawnRate) return;
-
-        let newX = Math.random() * (this.canvas.width - 60) + 30;
-        const newY = this.canvas.height + 50; 
-        const minSafeDistance = 65; 
-
-        for (let i = 0; i < window.gameState.items.length; i++) {
-            let existingItem = window.gameState.items[i];
-            if (existingItem.y > this.canvas.height - 100) {
-                if (Math.abs(newX - existingItem.x) < minSafeDistance) return; 
-            }
-        }
-
-        const rand = Math.random();
-        let type;
-        let mineChance = window.LEVEL_CONFIG[window.gameState.currentLevel]?.mineChance || 0.40;
-        let finalRand = rand;
-        
-        if (window.gameState.hp < 30) {
-            mineChance = mineChance / 2;
-            if (rand >= 0.45 && rand < 0.45 + (mineChance * 2)) {
-                if (Math.random() > 0.5) finalRand = 0.90; 
-            }
-        }
-
-        if (finalRand < 0.45) type = window.TYPES.GOLD;       
-        else if (finalRand < 0.45 + mineChance) type = window.TYPES.MINE;  
-        else if (finalRand < 0.94) type = window.TYPES.HEAL;  
-        else if (finalRand < 0.97) type = window.TYPES.BOOST; 
-        else type = window.TYPES.SHIELD;                 
-
-        window.gameState.items.push({ x: newX, y: newY, speed: window.BASE_SPEED, type: type });
+        const currentLevel = window.LEVEL_CONFIG[window.gameState.currentLevel];
+        return {
+            spawnRate: currentLevel?.spawnRate || 0.03,
+            mineChance: currentLevel?.mineChance || 0.40,
+            baseSpeed: window.BASE_SPEED,
+            types: window.TYPES
+        };
     },
 
-    createSplash(startX, startY, color = '#00f0ff') { // По умолчанию бирюзовый
+    createSplash(startX, startY, color = '#00f0ff') {
         if (!window.gameState) return;
 
-        const particleCount = 12; 
+        const particleCount = 12;
+        // Предварительно вычисляем PI * 2
+        const twoPI = Math.PI * 2;
+        
         for (let i = 0; i < particleCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 3 + 1; 
+            const angle = Math.random() * twoPI;
+            const speed = Math.random() * 3 + 1;
             window.gameState.splashes.push({
                 x: startX, y: startY,
                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                radius: Math.random() * 4 + 2, alpha: 1, 
+                radius: Math.random() * 4 + 2, alpha: 1,
                 decay: Math.random() * 0.03 + 0.02,
-                color: color // Запоминаем цвет для этой искры
+                color: color
             });
         }
     },
-
 
     render() {
         if (!window.gameState) return;
 
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Генерируем новые шарики только если игра НЕ на паузе и Лаборатория НЕ открыта
-        if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
+        const isGameActive = !window.gameState.isPaused && !window.gameState.isResearchOpen;
+
+        // Генерируем новые шарики только если игра активна
+        if (isGameActive) {
             this.spawnItem();
         }
 
         // Отрисовка летящих фигур
-        for (let i = window.gameState.items.length - 1; i >= 0; i--) {
-            let item = window.gameState.items[i];
+        const items = window.gameState.items;
+        for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
             
-            // ИСПРАВЛЕНО: Шарики застывают и при паузе, и при открытых исследованиях
-            if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
-                item.y -= item.speed; 
+            if (isGameActive) {
+                item.y -= item.speed;
             }
 
             this.ctx.beginPath();
             this.ctx.arc(item.x, item.y, item.type.radius, 0, Math.PI * 2);
-            this.ctx.fillStyle = item.type.color + '22'; 
+            this.ctx.fillStyle = item.type.color + '22';
             this.ctx.strokeStyle = item.type.color;
             this.ctx.lineWidth = 2;
             this.ctx.fill();
@@ -119,20 +144,22 @@ const Engine = {
             this.ctx.textBaseline = "middle";
             this.ctx.fillText(item.type.icon, item.x, item.y);
 
-            if (item.y < -50) window.gameState.items.splice(i, 1);
+            if (item.y < -50) items.splice(i, 1);
         }
 
         // Отрисовка сплэш-искр
-        for (let i = window.gameState.splashes.length - 1; i >= 0; i--) {
-            let p = window.gameState.splashes[i];
+        const splashes = window.gameState.splashes;
+        for (let i = splashes.length - 1; i >= 0; i--) {
+            const p = splashes[i];
             
-            // Искры тоже застывают во время паузы/исследований
-            if (!window.gameState.isPaused && !window.gameState.isResearchOpen) {
-                p.x += p.vx; p.y += p.vy; p.alpha -= p.decay; 
+            if (isGameActive) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
             }
 
             if (p.alpha <= 0) {
-                window.gameState.splashes.splice(i, 1);
+                splashes.splice(i, 1);
                 continue;
             }
 
@@ -140,12 +167,9 @@ const Engine = {
             this.ctx.globalAlpha = p.alpha;
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            
-            // ИСПРАВЛЕНО: Берём индивидуальный цвет частицы (бирюзовый для экрана, красный для объектов)
-            this.ctx.fillStyle = p.color; 
+            this.ctx.fillStyle = p.color;
             this.ctx.shadowBlur = 10;
             this.ctx.shadowColor = p.color;
-            
             this.ctx.fill();
             this.ctx.restore();
         }
@@ -153,27 +177,27 @@ const Engine = {
 
     setupTouches() {
         this.canvas.addEventListener('touchstart', (e) => {
-            if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isPaused || window.gameState.isResearchOpen) return; 
-            e.preventDefault(); 
+            if (!window.gameState || window.gameState.hp <= 0 || 
+                window.gameState.isPaused || window.gameState.isResearchOpen) return;
+            e.preventDefault();
             
             const touch = e.touches[0];
             const rect = this.canvas.getBoundingClientRect();
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
-            // Тап по экрану — летят БИРЮЗОВЫЕ искры (цвет по умолчанию)
             this.createSplash(touchX, touchY);
 
-            for (let i = window.gameState.items.length - 1; i >= 0; i--) {
-                let item = window.gameState.items[i];
-                let dist = Math.hypot(touchX - item.x, touchY - item.y);
+            const items = window.gameState.items;
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                const dist = Math.hypot(touchX - item.x, touchY - item.y);
 
-                if (dist < item.type.radius + 18) { 
-                    // Точное попадание по объекту — бахаем КРАСНЫМИ искрами!
+                if (dist < item.type.radius + 18) {
                     this.createSplash(item.x, item.y, '#ff2222');
 
                     if (window.Game) window.Game.handleItemClick(item.type);
-                    window.gameState.items.splice(i, 1); 
+                    items.splice(i, 1);
                     break;
                 }
             }
