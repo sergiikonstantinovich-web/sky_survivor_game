@@ -24,106 +24,23 @@ jobs:
 
       - name: Install Dependencies and Build APK
         run: |
-          # 1. Создаем package.json
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
-                  # ========================================================
-          # БРОНЕБОЙНЫЙ СКЛЕЙЩИК С ОЧИСТКОЙ ПРОБЕЛОВ
-          # ========================================================
-          echo "=== ЗАПУСК АВТОНОМНОГО СКЛЕЙЩИКА ==="
-          
-          node -e "
-            const fs = require('fs');
-            const path = require('path');
-
-            // Ищет файл, удаляя пробелы из имён и игнорируя регистр
-            function findFile(targetName) {
-                function searchDir(currentDir) {
-                    if (currentDir.includes('node_modules') || currentDir.includes('.git') || currentDir.includes('android')) {
-                        return null;
-                    }
-                    if (!fs.existsSync(currentDir)) return null;
-                    
-                    const items = fs.readdirSync(currentDir);
-                    
-                    // Проверяем файлы, очищая их от пробелов .trim()
-                    const found = items.find(item => item.trim().toLowerCase() === targetName.toLowerCase());
-                    if (found) {
-                        const fullPath = path.join(currentDir, found);
-                        if (fs.statSync(fullPath).isFile()) return fullPath;
-                    }
-                    
-                    for (const item of items) {
-                        const fullPath = path.join(currentDir, item);
-                        if (fs.statSync(fullPath).isDirectory()) {
-                            const res = searchDir(fullPath);
-                            if (res) return res;
-                        }
-                    }
-                    return null;
-                }
-                return searchDir('.');
-            }
-
-            const configPath = findFile('config.js');
-            const uiPath = findFile('ui.js');
-            const enginePath = findFile('engine.js');
-            const gamePath = findFile('game.js');
-
-            console.log('Ищем файлы (с очисткой пробелов)...');
-            console.log('-> Config:', configPath);
-            console.log('-> UI:', uiPath);
-            console.log('-> Engine:', enginePath);
-            console.log('-> Game:', gamePath);
-
-            if (!configPath || !uiPath || !enginePath || !gamePath) {
-                console.error('КРИТ: Один или несколько JS-файлов не найдены!');
-                process.exit(1);
-            }
-
-            const configCode = fs.readFileSync(configPath, 'utf8');
-            const uiCode = fs.readFileSync(uiPath, 'utf8');
-            const engineCode = fs.readFileSync(enginePath, 'utf8');
-            const gameCode = fs.readFileSync(gamePath, 'utf8');
-            
-            const fullCode = configCode + '\n' + uiCode + '\n' + engineCode + '\n' + gameCode;
-
-            let html = fs.readFileSync('index.html', 'utf8');
-            
-            // Вырезаем старые теги (учитываем возможные пробелы в путях внутри src=)
-            html = html.replace(/<script.*src=\".*config\.js\"><\/script>/i, '');
-            html = html.replace(/<script.*src=\".*ui\.js\"><\/script>/i, '');
-            html = html.replace(/<script.*src=\".*engine\.js\"><\/script>/i, '');
-            
-            const targetTag = /<script.*src=\".*game\.js\"><\/script>/i;
-            if (targetTag.test(html)) {
-                html = html.replace(targetTag, '<script type=\"text/javascript\">' + fullCode + '</script>');
-                console.log('🎉 Код успешно встроен!');
-            } else {
-                html = html.replace('</body>', '<script type=\"text/javascript\">' + fullCode + '</script></body>');
-                console.log('⚠️ Врезали перед закрывающим body');
-            }
-
-            fs.writeFileSync('index.html', html, 'utf8');
-            console.log('=== СКЛЕЙКА ПОЛНОСТЬЮ ЗАВЕРШЕНА ===');
-          "
-
-          
-          # 2. Собираем готовую веб-часть в папку www
+          # Копируем все файлы в www (сохраняя структуру папок)
           mkdir -p www
-          cp index.html www/ 2>/dev/null || true
-          cp style.css www/ 2>/dev/null || true
+          cp index.html www/
+          cp style.css www/
+          cp -r src www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
           
-          # 3. Инициализируем Capacitor
+          # Инициализируем Capacitor
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
           
-          # 4. Устанавливаем imagemagick для иконок
+          # Иконки
           sudo apt-get update && sudo apt-get install -y imagemagick
           
-          # 5. Подмена иконок
           RES_DIR="android/app/src/main/res"
           if [ -f resources/icon.png ]; then
             find $RES_DIR -name "ic_launcher.xml" -delete || true
@@ -145,11 +62,11 @@ jobs:
             exit 1
           fi
           
-          # 6. Обновление версии билда для сброса кэша телефона
+          # Версионирование
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
-          # 7. Синхронизация и компиляция APK
+          # Сборка
           npx cap sync android
           chmod +x android/gradlew
           cd android && ./gradlew assembleDebug
