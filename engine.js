@@ -68,12 +68,13 @@ const Engine = {
         if (Math.random() > rate) return;
 
         const types = window.TYPES || {
-            GOLD:   { icon: '🪙', color: '#ffd700', radius: 22 },
-            MINE:   { icon: '💥', color: '#f44336', radius: 22 },
-            HEAL:   { icon: '❤️', color: '#4caf50', radius: 22 },
-            BOOST:  { icon: '⚡', color: '#ff9800', radius: 22 },
-            SHIELD: { icon: '🛡️', color: '#2196f3', radius: 24 },
-            MOB:    { icon: '👾', color: '#9c27b0', radius: 55 }
+            GOLD:      { icon: '🪙', color: '#ffd700', radius: 22 },
+            MINE:      { icon: '💥', color: '#f44336', radius: 22 },
+            HEAL:      { icon: '❤️', color: '#4caf50', radius: 22 },
+            BOOST:     { icon: '⚡', color: '#ff9800', radius: 22 },
+            SHIELD:    { icon: '🛡️', color: '#2196f3', radius: 24 },
+            MOB:       { icon: '👾', color: '#9c27b0', radius: 55 },
+            HEAVY_MOB: { icon: '😈', color: '#ff0055', radius: 60 }
         };
 
         let type;
@@ -89,10 +90,12 @@ const Engine = {
             else if (rand < 0.75) type = types.HEAL;
             else if (rand < 0.80) type = types.BOOST;
             else if (rand < 0.85) type = types.SHIELD;
-            else type = types.MOB;
+            else {
+                // Распределяем спавн мобов: 30% на появление крепыша
+                type = (Math.random() < 0.30) ? types.HEAVY_MOB : types.MOB;
+            }
         }
 
-        // ФИКС ОСИ X: Отступ рассчитывается от радиуса шара! Моб больше не вылезет за экран
         const radius = type.radius || 22;
         let newX = Math.random() * (this.canvas.width - (radius * 2)) + radius;
         const newY = this.canvas.height + radius + 10; 
@@ -106,9 +109,13 @@ const Engine = {
             type: type 
         };
         
+        // Задаем здоровье в зависимости от типа врага
         if (type === types.MOB || type.icon === '👾') {
             newItem.hp = 10; 
             newItem.maxHp = 10;
+        } else if (type === types.HEAVY_MOB || type.icon === '😈') {
+            newItem.hp = 20;
+            newItem.maxHp = 20;
         }
 
         window.gameState.items.push(newItem);
@@ -149,11 +156,11 @@ const Engine = {
             this.ctx.textBaseline = "middle";
             this.ctx.fillText(item.type.icon, item.x, item.y);
 
-            // Полоска HP для моба
+            // Полоска HP для всех видов мобов
             if (item.hp !== undefined) {
                 this.ctx.font = "bold 13px sans-serif";
                 this.ctx.fillStyle = "#ffffff";
-                this.ctx.fillText(`HP: ${item.hp}/${item.maxHp}`, item.x, item.y + 28);
+                this.ctx.fillText(`HP: ${item.hp}/${item.maxHp}`, item.x, item.y + (item.type.radius ? item.type.radius - 27 : 28));
             }
 
             if (item.y < -100) {
@@ -216,7 +223,7 @@ const Engine = {
             const touchY = clientY - rect.top;
 
             const items = window.gameState.items || [];
-            let hitSomething = false; // Флаг: попали ли мы хоть в один шар?
+            let hitSomething = false; 
             
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
@@ -224,28 +231,23 @@ const Engine = {
 
                 const dist = Math.hypot(touchX - item.x, touchY - item.y);
 
-                // Если попали в шар (с учетом форы +15px)
                 if (dist <= radius + 15) { 
                     e.preventDefault();
                     e.stopPropagation();
 
-                    hitSomething = true; // Фиксируем попадание
+                    hitSomething = true; 
 
-                    // Бахаем РОДНОЙ ЦВЕТ шара (золотой, зеленый, фиолетовый и т.д.)
                     this.createSplash(item.x, item.y, item.type.color || '#fff');
 
-                    // Передаем ВЕСЬ объект шара в игру
                     if (window.Game && typeof window.Game.handleItemClick === 'function') {
                         window.Game.handleItemClick(item);
                     }
                     
-                    break; // Выходим из цикла, чтобы не зацепить нижние шары
+                    break; 
                 }
             }
 
-            // ЕСЛИ ПРОМАХНУЛИСЬ (кликнули в пустое место холста)
             if (!hitSomething) {
-                // Создаем неоново-голубой сплэш строго в точке тапа/клика!
                 this.createSplash(touchX, touchY, '#00d2ff');
             }
         };
@@ -253,7 +255,6 @@ const Engine = {
         this.canvas.addEventListener('touchstart', handler, { passive: false });
         this.canvas.addEventListener('mousedown', handler);
     }
-
 };
 
 window.Engine = Engine;

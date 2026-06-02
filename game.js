@@ -14,7 +14,6 @@ const Game = {
                 isResearchOpen: false,
                 items: [], splashes: [], floatingTexts: [],
                 
-                // Элементы сочности
                 combo: 0,
                 comboRank: 'D',
                 fever: 0,
@@ -65,7 +64,6 @@ const Game = {
         this.intervalId = setInterval(() => {
             if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isPaused || window.gameState.isResearchOpen) return; 
             
-            // Логика Ультимейта (Fever Mode)
             if (window.gameState.isFeverActive) {
                 window.gameState.feverDuration--;
                 window.gameState.fever = Math.max(0, (window.gameState.feverDuration / 7) * 100);
@@ -92,7 +90,6 @@ const Game = {
         }, 1000);
     },
 
-    // Механика нарастания комбо DMC
     handleHitCombo() {
         if (!window.gameState) return;
 
@@ -108,13 +105,11 @@ const Game = {
         else if (c >= 3) window.gameState.comboRank = 'C';
         else window.gameState.comboRank = 'D';
 
-        // Накопление ультимейта
         let maxFever = window.COMBAT_CONFIG?.feverMax || 100;
         if (!window.gameState.isFeverActive) {
             window.gameState.fever = Math.min(maxFever, window.gameState.fever + 2.5);
             this.updateFeverHud();
             
-            // Кнопка полностью готова: включаем неон и показываем текст "Жми!"
             if (window.gameState.fever >= maxFever) {
                 const ultBtn = document.getElementById('ult-btn');
                 if (ultBtn) {
@@ -140,30 +135,82 @@ const Game = {
         if (comboHud) comboHud.classList.add('hidden');
     },
 
-    activateFeverMode() {
+       activateFeverMode() {
         if (!window.gameState || window.gameState.isFeverActive) return;
 
         window.gameState.isFeverActive = true;
         window.gameState.feverDuration = 7; 
         window.BASE_SPEED = 2.5; 
         
-        // МГНОВЕННЫЙ СБРОС КНОПКИ ПРИ НАЖАТИИ:
         const ultBtn = document.getElementById('ult-btn');
         if (ultBtn) {
-            ultBtn.classList.remove('ready'); // Тушим неон
-            ultBtn.innerHTML = '';            // Стираем надпись "Жми!"
+            ultBtn.classList.remove('ready'); 
+            ultBtn.innerHTML = '';            
         }
-        window.gameState.fever = 0;           // Обнуляем шкалу ульта внутри логики
+        window.gameState.fever = 0;           
         this.updateFeverHud();
+
+        // Белая вспышка на весь экран
+        const flash = document.createElement('div');
+        flash.style.position = 'fixed';
+        flash.style.top = '0';
+        flash.style.left = '0';
+        flash.style.width = '100vw';
+        flash.style.height = '100vh';
+        flash.style.backgroundColor = '#ffffff';
+        flash.style.zIndex = '9999';
+        flash.style.pointerEvents = 'none';
+        flash.style.transition = 'opacity 0.4s ease-out';
+        document.body.appendChild(flash);
+        setTimeout(() => {
+            flash.style.opacity = '0';
+            setTimeout(() => flash.remove(), 400);
+        }, 30);
+
+        // Универсальная зачистка экрана ультой
+        if (window.gameState.items && window.gameState.items.length > 0) {
+            window.gameState.items = window.gameState.items.filter(item => {
+                // Если у объекта есть здоровье (hp) — значит это моб. Любой моб!
+                if (item.hp !== undefined) {
+                    
+                    item.hp -= 10; // Наносим фиксированные 10 урона
+                    
+                    if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
+                        window.Engine.createFloatingText(item.x, item.y, "-10 🔥", true);
+                    }
+
+                    // Если моб погиб от ульты
+                    if (item.hp <= 0) {
+                        let comboMult = 1;
+                        if (window.gameState.comboRank === 'C') comboMult = 1.2;
+                        else if (window.gameState.comboRank === 'B') comboMult = 1.5;
+                        else if (window.gameState.comboRank === 'A') comboMult = 1.8;
+                        else if (window.gameState.comboRank === 'S') comboMult = 2.5;
+                        
+                        // Проверяем, тяжелый ли это моб, чтобы выдать двойную награду
+                        let isHeavy = (item.type && (item.type.icon === '😈' || item.type === window.TYPES?.HEAVY_MOB));
+                        window.gameState.score += Math.floor((isHeavy ? 200 : 100) * comboMult);
+                        window.gameState.gold += 120; // В ульте всегда x2 золото (60 * 2)
+                        return false; // Удаляем из массива (убит)
+                    }
+                    return true; // Оставляем на экране (выжил, но получил урон)
+                }
+                return true; // Все остальные предметы (золото, мины, щиты) ульта не трогает
+            });
+            this.checkLevelUp();
+        }
 
         if (window.Engine && typeof window.Engine.triggerScreenShake === 'function') {
             window.Engine.triggerScreenShake();
         }
         
         if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
-            window.Engine.createFloatingText(window.innerWidth / 2, window.innerHeight / 2, "🔥 БЕРСЕРК АКТИВЕН!!", true);
+            window.Engine.createFloatingText(window.innerWidth / 2, window.innerHeight / 2, "🔥 АННИГИЛЯЦИЯ!", true);
         }
+        
+        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
+
 
     updateComboHud(isRankUp) {
         const comboHud = document.getElementById('combo-hud');
@@ -188,7 +235,6 @@ const Game = {
         const bar = document.getElementById('fever-bar-fill');
         if (bar) bar.style.width = `${window.gameState.fever}%`;
 
-        // Защита: если шкала ушла вниз, а кнопка всё ещё горит или имеет текст — принудительно очищаем её
         if (window.gameState && window.gameState.fever < 100) {
             const ultBtn = document.getElementById('ult-btn');
             if (ultBtn) {
@@ -205,7 +251,7 @@ const Game = {
         const icon = type.icon;
         
         const types = window.TYPES || {
-            GOLD: '🪙', MINE: '💥', HEAL: '❤️', BOOST: '⚡', SHIELD: '🛡️', MOB: '👾'
+            GOLD: '🪙', MINE: '💥', HEAL: '❤️', BOOST: '⚡', SHIELD: '🛡️', MOB: '👾', HEAVY_MOB: '😈'
         };
 
         const isMine = (icon === '💥' || type === types.MINE);
@@ -213,7 +259,8 @@ const Game = {
         const isHeal = (icon === '❤️' || type === types.HEAL);
         const isShield = (icon === '🛡️' || type === types.SHIELD);
         const isBoost = (icon === '⚡' || type === types.BOOST);
-        const isMob = (icon === '👾' || type === types.MOB);
+        // Теперь проверяем оба типа мобов: и обычного, и тяжелого
+        const isMob = (icon === '👾' || type === types.MOB || icon === '😈' || type === types.HEAVY_MOB);
 
         if (!isMine) {
             this.handleHitCombo();
@@ -269,14 +316,17 @@ const Game = {
                 }
             }
 
-            window.gameState.score += Math.floor(100 * comboMult);
-            window.gameState.gold += (window.gameState.isFeverActive ? 60 : 30);
+            // Награда за убийство моба (тяжелому можно отсыпать чуть больше очков)
+            let isHeavy = (icon === '😈' || type === types.HEAVY_MOB);
+            window.gameState.score += Math.floor((isHeavy ? 200 : 100) * comboMult);
+            window.gameState.gold += (window.gameState.isFeverActive ? 120 : 60);
             window.gameState.items = window.gameState.items.filter(i => i !== item);
             this.checkLevelUp();
         }
         
         if (window.UI && typeof window.UI.update === 'function') window.UI.update();
     },
+
 
     togglePause() {
         if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isResearchOpen) return;
@@ -357,10 +407,9 @@ const Game = {
         if (researchScreen) researchScreen.classList.add('hidden');
         if (pauseBtn) pauseBtn.textContent = '⏸️';
         
-        // Сбрасываем кнопку ульта при перезагрузке сессии
         const ultBtn = document.getElementById('ult-btn');
         if (ultBtn) {
-            ultBtn.classList.remove('ready');
+            grid.classList.remove('ready');
             ultBtn.innerHTML = '';
         }
         

@@ -10,12 +10,13 @@ window.LEVEL_CONFIG = {
 
 // Справочник типов объектов и их параметров
 window.TYPES = {
-    GOLD:   { icon: '🪙', color: '#ffd700', radius: 22 },
-    HEAL:   { icon: '❤️', color: '#4caf50', radius: 22 },
-    SHIELD: { icon: '🛡️', color: '#2196f3', radius: 24 },
-    BOOST:  { icon: '⚡', color: '#ff9800', radius: 22 },
-    MINE:   { icon: '💥', color: '#f44336', radius: 22 }, 
-    MOB:    { icon: '👾', color: '#9c27b0', radius: 55 } 
+    GOLD:      { icon: '🪙', color: '#ffd700', radius: 22 },
+    HEAL:      { icon: '❤️', color: '#4caf50', radius: 22 },
+    SHIELD:    { icon: '🛡️', color: '#2196f3', radius: 24 },
+    BOOST:     { icon: '⚡', color: '#ff9800', radius: 22 },
+    MINE:      { icon: '💥', color: '#f44336', radius: 22 }, 
+    MOB:       { icon: '👾', color: '#9c27b0', radius: 55 },
+    HEAVY_MOB: { icon: '😈', color: '#ff0055', radius: 60 } // Новый моб на 20 тапов (Не босс!)
 };
 
 // --- КОНФИГ КРИТОВ И КОМБО DMC ---
