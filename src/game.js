@@ -1,17 +1,11 @@
-console.log('🔷 Game.js загружен');
-console.log('  - handleHitCombo:', typeof handleHitCombo);
-console.log('  - resetCombo:', typeof resetCombo);
-console.log('  - startGameTimers:', typeof startGameTimers);
-console.log('  - startGameLoop:', typeof startGameLoop);
-console.log('  - handleItemClick:', typeof handleItemClick);
-// ========== src/game.js (новая версия — ~120 строк вместо 400) ==========
+// ========== src/game.js ==========
 import { LEVEL_CONFIG } from './config/gameConfig.js';
 import Engine from './engine.js';
 import UI from './ui.js';
-import { handleHitCombo, resetCombo } from './combat/comboSystem.js';
+import { handleHitCombo, resetCombo, hideEmergencyHeal } from './combat/comboSystem.js';
 import { updateFeverHud, activateFeverMode } from './combat/feverSystem.js';
-import { startGameTimers, stopGameTimers } from './core/gameTimers.js';
-import { startGameLoop, stopGameLoop } from './core/gameLoop.js';
+import { startGameTimers } from './core/gameTimers.js';
+import { startGameLoop } from './core/gameLoop.js';
 import { handleItemClick } from './core/clickHandler.js';
 import { togglePause, toggleResearch } from './ui/gameUI.js';
 
@@ -30,6 +24,7 @@ const Game = {
                 items: [], splashes: [], floatingTexts: [],
                 combo: 0, comboRank: 'D',
                 fever: 0, isFeverActive: false, feverDuration: 0,
+                healButtonUsed: false,
                 research: {
                     clickPower: { lvl: 0, max: 5, cost: 40 },
                     goldBonus: { lvl: 0, max: 5, cost: 50 },
@@ -46,12 +41,30 @@ const Game = {
     },
 
     handleItemClick(item) {
-        console.log('🖱️ handleItemClick вызван, тип:', item.type?.icon);
         handleItemClick(window.gameState, item, () => this.checkLevelUp(), () => UI.update());
     },
 
     activateFeverMode() {
         activateFeverMode(window.gameState, () => this.checkLevelUp(), () => UI.update());
+    },
+
+    healFromEmergency() {
+        const gs = window.gameState;
+        if (!gs || gs.hp <= 0) return;
+        
+        gs.hp = Math.min(100, gs.hp + 25);
+        hideEmergencyHeal();
+        gs.healButtonUsed = true;
+        UI.update();
+        
+        // Зелёная вспышка
+        const flash = document.createElement('div');
+        flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#00ff00;z-index:9998;pointer-events:none;transition:opacity 0.3s ease-out;opacity:0.5';
+        document.body.appendChild(flash);
+        setTimeout(() => {
+            flash.style.opacity = '0';
+            setTimeout(() => flash.remove(), 300);
+        }, 50);
     },
 
     checkLevelUp() {
@@ -92,7 +105,9 @@ const Game = {
         gs.fever = 0;
         gs.isFeverActive = false;
         gs.feverDuration = 0;
+        gs.healButtonUsed = false;
         updateFeverHud(gs);
+        hideEmergencyHeal();
         window.BASE_SPEED = 2.5;
 
         gs.research = {
@@ -129,22 +144,9 @@ const Game = {
     setupEvents() {
         const pauseBtn = document.getElementById('pause-btn');
         const researchBtn = document.getElementById('research-btn');
+        const healBtn = document.getElementById('emergency-heal');
         const resumeBtn = document.getElementById('resume-btn');
-        const ultBtn = document.getElementById('ult-btn');
-        if (ultBtn) {
-            ultBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (window.gameState && window.gameState.fever >= 100) {
-                    this.activateFeverMode();
-                }
-            };
-        }
-        if (resumeBtn) {
-            resumeBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.togglePause();
-            };
-        }
+
         if (pauseBtn) {
             pauseBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -157,6 +159,18 @@ const Game = {
                 this.toggleResearch();
             };
         }
+        if (healBtn) {
+            healBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.healFromEmergency();
+            };
+        }
+        if (resumeBtn) {
+            resumeBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.togglePause();
+            };
+        }
 
         document.addEventListener('visibilitychange', () => {
             const gs = window.gameState;
@@ -165,10 +179,9 @@ const Game = {
             }
         });
         
-        // Запускаем таймеры отдельно от цикла
         startGameTimers(window.gameState, () => this.checkLevelUp(), () => UI.update());
     }
 };
-console.log('🔷 Game объект создан, экспортирую');
+
 export default Game;
 window.Game = Game;

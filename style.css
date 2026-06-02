@@ -384,3 +384,58 @@ canvas {
     transform: skewX(-20deg) scale(0.95);
     background: #e040fb;
 }
+
+/* ===== АПТЕЧКА ПРИ КОМБО S ===== */
+.emergency-heal {
+    position: absolute;
+    right: 15px;
+    top: 140px;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff0000, #cc0000);
+    border: 3px solid #ff6666;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: all 0.2s ease;
+    animation: healPulse 0.5s ease-out;
+}
+
+.emergency-heal .heal-icon {
+    font-size: 28px;
+    filter: drop-shadow(0 0 4px white);
+}
+
+.emergency-heal .heal-value {
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 0 4px black;
+}
+
+.emergency-heal:active {
+    transform: scale(0.9);
+}
+
+@keyframes healPulse {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.emergency-heal.hidden {
+    display: none !important;
+}
