@@ -63,24 +63,21 @@
         };
     </script>
 
-    <script type="text/javascript" src="config.js"></script>
-    <script type="text/javascript" src="ui.js"></script>
-    <script type="text/javascript" src="engine.js"></script>
-    <script type="text/javascript" src="game.js"></script>
+    <!-- НОВОЕ: подключаем модуль (он НЕ ломает старые скрипты) -->
+    <script type="module" src="src/ui.js"></script>
+    <script type="module" src="src/engine.js"></script>
+    <script type="module" src="src/game.js"></script>
     
-    <script type="text/javascript">
-        let appReady = false;
-        function initApp() {
-            if (appReady) return;
-            appReady = true;
-            if (window.Game && typeof window.Game.start === 'function') {
-                window.Game.start();
-            } else {
-                alert("Ошибка: window.Game не найден!");
-            }
-        }
-        document.addEventListener('deviceready', initApp, false);
-        document.addEventListener('DOMContentLoaded', initApp, false);
+    <script type="module">
+        // Инициализация игры
+        import Game from './src/game.js';
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            Game.start();
+        });
+        
+        // Для глобального доступа (если нужно из onclick)
+        window.Game = Game;
     </script>
 </body>
 </html>

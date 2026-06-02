@@ -1,7 +1,13 @@
+// ========== src/game.js ==========
+import { LEVEL_CONFIG, COMBAT_CONFIG } from './config/gameConfig.js';
+import Engine from './engine.js';
+import UI from './ui.js';
+
 const Game = {
     animationFrameId: null,
     isInitialized: false,
     comboTimer: null,
+    intervalId: null,
 
     start() {
         if (this.isInitialized) return; 
@@ -28,16 +34,16 @@ const Game = {
             };
         }
 
-        if (window.Engine) window.Engine.init();
+        Engine.init();
         this.setupEvents();
-        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+        UI.update();
         
         this.loop();
     },
 
     loop() {
         if (!window.gameState) {
-            Game.animationFrameId = requestAnimationFrame(() => Game.loop());
+            this.animationFrameId = requestAnimationFrame(() => this.loop());
             return;
         }
 
@@ -49,13 +55,13 @@ const Game = {
                     this.resetGame();
                 }, 10);
             }
-            if (window.Engine) window.Engine.render();
-            Game.animationFrameId = requestAnimationFrame(() => Game.loop());
+            Engine.render();
+            this.animationFrameId = requestAnimationFrame(() => this.loop());
             return;
         }
 
-        if (window.Engine) window.Engine.render();
-        Game.animationFrameId = requestAnimationFrame(() => Game.loop());
+        Engine.render();
+        this.animationFrameId = requestAnimationFrame(() => this.loop());
     },
 
     startTimers() {
@@ -78,7 +84,7 @@ const Game = {
                 window.gameState.shieldTimer--;
                 if (window.gameState.shieldTimer <= 0) window.gameState.isShieldActive = false;
             } else {
-                let hpLoss = window.LEVEL_CONFIG?.[window.gameState.currentLevel]?.hpLoss || 2;
+                let hpLoss = LEVEL_CONFIG?.[window.gameState.currentLevel]?.hpLoss || 2;
                 if (!window.gameState.isFeverActive) {
                     window.gameState.hp -= hpLoss;
                 }
@@ -86,7 +92,7 @@ const Game = {
             
             window.gameState.score += 1; 
             this.checkLevelUp(); 
-            if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+            UI.update();
         }, 1000);
     },
 
@@ -105,7 +111,7 @@ const Game = {
         else if (c >= 3) window.gameState.comboRank = 'C';
         else window.gameState.comboRank = 'D';
 
-        let maxFever = window.COMBAT_CONFIG?.feverMax || 100;
+        let maxFever = COMBAT_CONFIG?.feverMax || 100;
         if (!window.gameState.isFeverActive) {
             window.gameState.fever = Math.min(maxFever, window.gameState.fever + 2.5);
             this.updateFeverHud();
@@ -121,7 +127,7 @@ const Game = {
 
         this.updateComboHud(oldRank !== window.gameState.comboRank);
 
-        let timeout = window.COMBAT_CONFIG?.comboTimeout || 3500;
+        let timeout = COMBAT_CONFIG?.comboTimeout || 3500;
         this.comboTimer = setTimeout(() => {
             this.resetCombo();
         }, timeout);
@@ -135,7 +141,7 @@ const Game = {
         if (comboHud) comboHud.classList.add('hidden');
     },
 
-       activateFeverMode() {
+    activateFeverMode() {
         if (!window.gameState || window.gameState.isFeverActive) return;
 
         window.gameState.isFeverActive = true;
@@ -150,36 +156,25 @@ const Game = {
         window.gameState.fever = 0;           
         this.updateFeverHud();
 
-        // Белая вспышка на весь экран
+        // Белая вспышка
         const flash = document.createElement('div');
-        flash.style.position = 'fixed';
-        flash.style.top = '0';
-        flash.style.left = '0';
-        flash.style.width = '100vw';
-        flash.style.height = '100vh';
-        flash.style.backgroundColor = '#ffffff';
-        flash.style.zIndex = '9999';
-        flash.style.pointerEvents = 'none';
-        flash.style.transition = 'opacity 0.4s ease-out';
+        flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff;z-index:9999;pointer-events:none;transition:opacity 0.4s ease-out';
         document.body.appendChild(flash);
         setTimeout(() => {
             flash.style.opacity = '0';
             setTimeout(() => flash.remove(), 400);
         }, 30);
 
-        // Универсальная зачистка экрана ультой
+        // Ультимейт очистка
         if (window.gameState.items && window.gameState.items.length > 0) {
             window.gameState.items = window.gameState.items.filter(item => {
-                // Если у объекта есть здоровье (hp) — значит это моб. Любой моб!
                 if (item.hp !== undefined) {
+                    item.hp -= 10;
                     
-                    item.hp -= 10; // Наносим фиксированные 10 урона
-                    
-                    if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
-                        window.Engine.createFloatingText(item.x, item.y, "-10 🔥", true);
+                    if (Engine.createFloatingText) {
+                        Engine.createFloatingText(item.x, item.y, "-10 🔥", true);
                     }
 
-                    // Если моб погиб от ульты
                     if (item.hp <= 0) {
                         let comboMult = 1;
                         if (window.gameState.comboRank === 'C') comboMult = 1.2;
@@ -187,30 +182,22 @@ const Game = {
                         else if (window.gameState.comboRank === 'A') comboMult = 1.8;
                         else if (window.gameState.comboRank === 'S') comboMult = 2.5;
                         
-                        // Проверяем, тяжелый ли это моб, чтобы выдать двойную награду
-                        let isHeavy = (item.type && (item.type.icon === '😈' || item.type === window.TYPES?.HEAVY_MOB));
+                        let isHeavy = (item.type && (item.type.icon === '😈'));
                         window.gameState.score += Math.floor((isHeavy ? 200 : 100) * comboMult);
-                        window.gameState.gold += 120; // В ульте всегда x2 золото (60 * 2)
-                        return false; // Удаляем из массива (убит)
+                        window.gameState.gold += 120;
+                        return false;
                     }
-                    return true; // Оставляем на экране (выжил, но получил урон)
+                    return true;
                 }
-                return true; // Все остальные предметы (золото, мины, щиты) ульта не трогает
+                return true;
             });
             this.checkLevelUp();
         }
 
-        if (window.Engine && typeof window.Engine.triggerScreenShake === 'function') {
-            window.Engine.triggerScreenShake();
-        }
-        
-        if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
-            window.Engine.createFloatingText(window.innerWidth / 2, window.innerHeight / 2, "🔥 АННИГИЛЯЦИЯ!", true);
-        }
-        
-        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+        Engine.triggerScreenShake();
+        Engine.createFloatingText(window.innerWidth / 2, window.innerHeight / 2, "🔥 АННИГИЛЯЦИЯ!", true);
+        UI.update();
     },
-
 
     updateComboHud(isRankUp) {
         const comboHud = document.getElementById('combo-hud');
@@ -250,17 +237,12 @@ const Game = {
         const type = item.type;
         const icon = type.icon;
         
-        const types = window.TYPES || {
-            GOLD: '🪙', MINE: '💥', HEAL: '❤️', BOOST: '⚡', SHIELD: '🛡️', MOB: '👾', HEAVY_MOB: '😈'
-        };
-
-        const isMine = (icon === '💥' || type === types.MINE);
-        const isGold = (icon === '🪙' || type === types.GOLD);
-        const isHeal = (icon === '❤️' || type === types.HEAL);
-        const isShield = (icon === '🛡️' || type === types.SHIELD);
-        const isBoost = (icon === '⚡' || type === types.BOOST);
-        // Теперь проверяем оба типа мобов: и обычного, и тяжелого
-        const isMob = (icon === '👾' || type === types.MOB || icon === '😈' || type === types.HEAVY_MOB);
+        const isMine = (icon === '💥');
+        const isGold = (icon === '🪙');
+        const isHeal = (icon === '❤️');
+        const isShield = (icon === '🛡️');
+        const isBoost = (icon === '⚡');
+        const isMob = (icon === '👾' || icon === '😈');
 
         if (!isMine) {
             this.handleHitCombo();
@@ -295,9 +277,7 @@ const Game = {
         } 
         else if (isMine) {
             this.resetCombo(); 
-            if (window.Engine && typeof window.Engine.triggerScreenShake === 'function') {
-                window.Engine.triggerScreenShake(); 
-            }
+            Engine.triggerScreenShake();
             if (!window.gameState.isFeverActive) window.gameState.hp -= 25; 
             window.gameState.items = window.gameState.items.filter(i => i !== item);
         } 
@@ -306,27 +286,23 @@ const Game = {
                 let damage = 1 + (window.gameState.research?.clickPower?.lvl || 0);
                 item.hp -= damage;
 
-                if (window.Engine && typeof window.Engine.createFloatingText === 'function') {
-                    window.Engine.createFloatingText(item.x, item.y - 20, `-${damage}`, false);
-                }
+                Engine.createFloatingText(item.x, item.y - 20, `-${damage}`, false);
 
                 if (item.hp > 0) {
-                    if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+                    UI.update();
                     return; 
                 }
             }
 
-            // Награда за убийство моба (тяжелому можно отсыпать чуть больше очков)
-            let isHeavy = (icon === '😈' || type === types.HEAVY_MOB);
+            let isHeavy = (icon === '😈');
             window.gameState.score += Math.floor((isHeavy ? 200 : 100) * comboMult);
             window.gameState.gold += (window.gameState.isFeverActive ? 120 : 60);
             window.gameState.items = window.gameState.items.filter(i => i !== item);
             this.checkLevelUp();
         }
         
-        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+        UI.update();
     },
-
 
     togglePause() {
         if (!window.gameState || window.gameState.hp <= 0 || window.gameState.isResearchOpen) return;
@@ -341,7 +317,7 @@ const Game = {
             if (pauseScreen) pauseScreen.classList.add('hidden');
             if (pauseBtn) pauseBtn.textContent = '⏸️'; 
         }
-        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+        UI.update();
     },
 
     toggleResearch() {
@@ -353,22 +329,22 @@ const Game = {
         } else {
             if (researchScreen) researchScreen.classList.add('hidden');
         }
-        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+        UI.update();
     },
 
     checkLevelUp() {
         if (!window.gameState) return;
-        let config = window.LEVEL_CONFIG?.[window.gameState.currentLevel];
+        let config = LEVEL_CONFIG?.[window.gameState.currentLevel];
         if (!config) return;
 
-        if (window.gameState.score >= config.targetScore && window.LEVEL_CONFIG?.[window.gameState.currentLevel + 1]) {
+        if (window.gameState.score >= config.targetScore && LEVEL_CONFIG?.[window.gameState.currentLevel + 1]) {
             window.gameState.currentLevel++;
-            let nextConfig = window.LEVEL_CONFIG[window.gameState.currentLevel];
+            let nextConfig = LEVEL_CONFIG[window.gameState.currentLevel];
             window.gameState.gold += 50;
             window.gameState.hp = Math.min(100, window.gameState.hp + 20);
             
             alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}`);
-            if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+            UI.update();
         }
     },
 
@@ -409,11 +385,11 @@ const Game = {
         
         const ultBtn = document.getElementById('ult-btn');
         if (ultBtn) {
-            grid.classList.remove('ready');
+            ultBtn.classList.remove('ready');
             ultBtn.innerHTML = '';
         }
         
-        if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+        UI.update();
     },
 
     setupEvents() {
@@ -433,5 +409,6 @@ const Game = {
     }
 };
 
+// Экспортируем и вешаем в window для обратной совместимости
+export default Game;
 window.Game = Game;
-window.onload = () => Game.start();

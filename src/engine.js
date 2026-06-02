@@ -1,8 +1,20 @@
+// ========== src/engine.js ==========
+import { BASE_SPEED, TYPES } from './config/gameConfig.js';
+
+// Храним ссылки на canvas и ctx
+let canvas, ctx;
+
+// Функции для доступа из Game (пока оставляем в глобальном window)
 const Engine = {
-    canvas: document.getElementById('gameCanvas'),
-    ctx: document.getElementById('gameCanvas').getContext('2d'),
+    canvas: null,
+    ctx: null,
 
     init() {
+        canvas = document.getElementById('gameCanvas');
+        ctx = canvas.getContext('2d');
+        this.canvas = canvas;
+        this.ctx = ctx;
+        
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
         this.setupTouches();
@@ -14,9 +26,8 @@ const Engine = {
         this.canvas.height = this.canvas.parentElement.clientHeight;
     },
 
-    // Метод вызова тряски игрового контейнера
     triggerScreenShake() {
-        const container = this.canvas.parentElement;
+        const container = this.canvas ? this.canvas.parentElement : null;
         if (!container) return;
         container.classList.add('shake-active');
         setTimeout(() => {
@@ -24,7 +35,6 @@ const Engine = {
         }, 150);
     },
 
-    // Создание вылетающих цифр урона
     createFloatingText(x, y, text, isCrit = false) {
         if (!window.gameState || !window.gameState.floatingTexts) return;
         window.gameState.floatingTexts.push({
@@ -37,7 +47,6 @@ const Engine = {
         });
     },
 
-    // Создание частиц взрыва (сплэша)
     createSplash(x, y, color) {
         if (!window.gameState || !window.gameState.splashes) return;
         for (let i = 0; i < 12; i++) {
@@ -67,32 +76,21 @@ const Engine = {
 
         if (Math.random() > rate) return;
 
-        const types = window.TYPES || {
-            GOLD:      { icon: '🪙', color: '#ffd700', radius: 22 },
-            MINE:      { icon: '💥', color: '#f44336', radius: 22 },
-            HEAL:      { icon: '❤️', color: '#4caf50', radius: 22 },
-            BOOST:     { icon: '⚡', color: '#ff9800', radius: 22 },
-            SHIELD:    { icon: '🛡️', color: '#2196f3', radius: 24 },
-            MOB:       { icon: '👾', color: '#9c27b0', radius: 55 },
-            HEAVY_MOB: { icon: '😈', color: '#ff0055', radius: 60 }
-        };
-
         let type;
         const rand = Math.random();
         let mineChance = currentLevel?.mineChance || 0.40;
 
-        // СПАСЕНИЕ ИГРОКА: Если ХП < 30, с шансом 35% выкидываем аптечку
+        // Спасение игрока: если ХП < 30, с шансом 35% выкидываем аптечку
         if (window.gameState.hp < 30 && Math.random() < 0.35) {
-            type = types.HEAL;
+            type = TYPES.HEAL;
         } else {
-            if (rand < 0.40) type = types.GOLD;
-            else if (rand < 0.40 + mineChance) type = types.MINE;
-            else if (rand < 0.75) type = types.HEAL;
-            else if (rand < 0.80) type = types.BOOST;
-            else if (rand < 0.85) type = types.SHIELD;
+            if (rand < 0.40) type = TYPES.GOLD;
+            else if (rand < 0.40 + mineChance) type = TYPES.MINE;
+            else if (rand < 0.75) type = TYPES.HEAL;
+            else if (rand < 0.80) type = TYPES.BOOST;
+            else if (rand < 0.85) type = TYPES.SHIELD;
             else {
-                // Распределяем спавн мобов: 30% на появление крепыша
-                type = (Math.random() < 0.30) ? types.HEAVY_MOB : types.MOB;
+                type = (Math.random() < 0.30) ? TYPES.HEAVY_MOB : TYPES.MOB;
             }
         }
 
@@ -100,20 +98,17 @@ const Engine = {
         let newX = Math.random() * (this.canvas.width - (radius * 2)) + radius;
         const newY = this.canvas.height + radius + 10; 
 
-        let speed = window.BASE_SPEED || 2.5;
-
         let newItem = { 
             x: newX, 
             y: newY, 
-            speed: speed, 
+            speed: BASE_SPEED, 
             type: type 
         };
         
-        // Задаем здоровье в зависимости от типа врага
-        if (type === types.MOB || type.icon === '👾') {
+        if (type === TYPES.MOB) {
             newItem.hp = 10; 
             newItem.maxHp = 10;
-        } else if (type === types.HEAVY_MOB || type.icon === '😈') {
+        } else if (type === TYPES.HEAVY_MOB) {
             newItem.hp = 20;
             newItem.maxHp = 20;
         }
@@ -137,8 +132,7 @@ const Engine = {
             const item = items[i];
             
             if (isGameActive) {
-                let currentSpeed = window.BASE_SPEED || item.speed || 2.5;
-                item.y -= currentSpeed;
+                item.y -= item.speed || BASE_SPEED;
             }
 
             // Отрисовка неонового шара
@@ -156,7 +150,7 @@ const Engine = {
             this.ctx.textBaseline = "middle";
             this.ctx.fillText(item.type.icon, item.x, item.y);
 
-            // Полоска HP для всех видов мобов
+            // Полоска HP для мобов
             if (item.hp !== undefined) {
                 this.ctx.font = "bold 13px sans-serif";
                 this.ctx.fillStyle = "#ffffff";
@@ -188,7 +182,7 @@ const Engine = {
             this.ctx.restore();
         }
 
-        // Отрисовка плавающего текста урона
+        // Отрисовка плавающего текста
         const fts = window.gameState.floatingTexts || [];
         for (let i = fts.length - 1; i >= 0; i--) {
             const ft = fts[i];
@@ -211,50 +205,50 @@ const Engine = {
         }
     },
 
-    setupTouches() {
-        const handler = (e) => {
-            if (!window.gameState || window.gameState.isPaused || window.gameState.isResearchOpen) return;
+setupTouches() {
+    const handler = (e) => {
+        if (!window.gameState || window.gameState.isPaused || window.gameState.isResearchOpen) return;
 
-            const rect = this.canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            const touchX = clientX - rect.left;
-            const touchY = clientY - rect.top;
+        const rect = this.canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        const touchX = clientX - rect.left;
+        const touchY = clientY - rect.top;
 
-            const items = window.gameState.items || [];
-            let hitSomething = false; 
-            
-            for (let i = items.length - 1; i >= 0; i--) {
-                const item = items[i];
-                const radius = item.type.radius || 22;
+        const items = window.gameState.items || [];
+        let hit = false;
+        
+        for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
+            const radius = item.type.radius || 22;
 
-                const dist = Math.hypot(touchX - item.x, touchY - item.y);
+            const dist = Math.hypot(touchX - item.x, touchY - item.y);
 
-                if (dist <= radius + 15) { 
-                    e.preventDefault();
-                    e.stopPropagation();
+            if (dist <= radius + 15) { 
+                e.preventDefault();
+                e.stopPropagation();
+                hit = true;
+                this.createSplash(item.x, item.y, item.type.color || '#fff');
 
-                    hitSomething = true; 
-
-                    this.createSplash(item.x, item.y, item.type.color || '#fff');
-
-                    if (window.Game && typeof window.Game.handleItemClick === 'function') {
-                        window.Game.handleItemClick(item);
-                    }
-                    
-                    break; 
+                if (window.Game && typeof window.Game.handleItemClick === 'function') {
+                    window.Game.handleItemClick(item);
                 }
+                break; 
             }
+        }
+        
+        // Если кликнули в пустоту — сплэш
+        if (!hit) {
+            this.createSplash(touchX, touchY, '#00d2ff');
+        }
+    };
 
-            if (!hitSomething) {
-                this.createSplash(touchX, touchY, '#00d2ff');
-            }
-        };
-
-        this.canvas.addEventListener('touchstart', handler, { passive: false });
-        this.canvas.addEventListener('mousedown', handler);
-    }
+    this.canvas.addEventListener('touchstart', handler, { passive: false });
+    this.canvas.addEventListener('mousedown', handler);
+}
 };
 
+// Экспортируем и вешаем в window для обратной совместимости
+export default Engine;
 window.Engine = Engine;

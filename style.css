@@ -379,7 +379,6 @@ canvas {
         transform: skewX(-20deg) scale(1.05); /* Слегка пульсирует в размерах */
     }
 }
-
 /* Эффект при самом нажатии */
 #ult-btn.ready:active {
     transform: skewX(-20deg) scale(0.95);
