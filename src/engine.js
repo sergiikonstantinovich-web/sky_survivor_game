@@ -1,3 +1,4 @@
+console.log('🔶 Engine.js загружен');
 // ========== src/engine.js ==========
 import { BASE_SPEED, TYPES } from './config/gameConfig.js';
 
