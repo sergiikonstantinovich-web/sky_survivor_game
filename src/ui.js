@@ -109,7 +109,56 @@ const UI = {
                 if (hpBarContainer) hpBarContainer.classList.remove('frozen-active');
             }
         }
+    }, 
+    showLevelUp(level) {
+        const notification = document.getElementById('level-notification');
+        const levelText = document.getElementById('level-text');
+        
+        if (!notification || !levelText) return;
+        
+        levelText.textContent = `LEVEL ${level}`;
+        notification.classList.remove('hidden');
+        
+        // Убираем предыдущую анимацию, чтобы перезапустить
+        notification.style.animation = 'none';
+        setTimeout(() => {
+            notification.style.animation = 'slideInOut 1.5s ease-in-out forwards';
+        }, 10);
+        
+        // Скрываем после анимации
+        setTimeout(() => {
+            notification.classList.add('hidden');
+        }, 1500);
+    }, 
+    
+    showGameOver(score, gold, level) {
+    const screen = document.getElementById('gameover-screen');
+    const finalScore = document.getElementById('final-score');
+    const finalGold = document.getElementById('final-gold');
+    const finalLevel = document.getElementById('final-level');
+    
+    if (!screen) return;
+    
+    if (finalScore) finalScore.textContent = score;
+    if (finalGold) finalGold.textContent = gold;
+    if (finalLevel) finalLevel.textContent = level;
+    
+    screen.classList.remove('hidden');
+    
+    // Вешаем обработчик на кнопку рестарта
+    const restartBtn = document.getElementById('gameover-restart-btn');
+    if (restartBtn) {
+        // Удаляем старый обработчик, чтобы не дублировался
+        const newBtn = restartBtn.cloneNode(true);
+        restartBtn.parentNode.replaceChild(newBtn, restartBtn);
+        newBtn.onclick = () => {
+            screen.classList.add('hidden');
+            if (window.Game && typeof window.Game.resetGame === 'function') {
+                window.Game.resetGame();
+            }
+        };
     }
+}
 };
 
 // Экспортируем и вешаем в window (для обратной совместимости)

@@ -79,5 +79,21 @@
         });
         window.Game = Game;
     </script>
+    <!-- Неоновое уведомление об уровне -->
+    <div id="level-notification" class="level-notification hidden">
+        <span id="level-text">LEVEL 1</span>
+    </div>
+    <!-- Экран Game Over -->
+<div id="gameover-screen" class="gameover-screen hidden">
+    <div class="gameover-content">
+        <h1 class="gameover-title">GAME OVER</h1>
+        <div class="gameover-stats">
+            <p>🏆 <span id="final-score">0</span> очков</p>
+            <p>💰 <span id="final-gold">0</span> золота</p>
+            <p>🎯 <span id="final-level">1</span> уровень</p>
+        </div>
+        <button id="gameover-restart-btn" class="gameover-btn">Попробовать снова</button>
+    </div>
+</div>
 </body>
 </html>

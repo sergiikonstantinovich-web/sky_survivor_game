@@ -67,23 +67,31 @@ const Game = {
         }, 50);
     },
 
-    checkLevelUp() {
-        const gs = window.gameState;
-        if (!gs) return;
-        
-        const config = LEVEL_CONFIG?.[gs.currentLevel];
-        if (!config) return;
+checkLevelUp() {
+    const gs = window.gameState;
+    if (!gs) return;
+    
+    const config = LEVEL_CONFIG?.[gs.currentLevel];
+    if (!config) return;
 
-        if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
-            gs.currentLevel++;
-            const nextConfig = LEVEL_CONFIG[gs.currentLevel];
-            gs.gold += 50;
-            gs.hp = Math.min(100, gs.hp + 20);
-            
-            alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}`);
-            UI.update();
+    if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
+        gs.currentLevel++;
+        const nextLevelNum = gs.currentLevel;
+        const nextConfig = LEVEL_CONFIG[nextLevelNum];
+        gs.gold += 50;
+        gs.hp = Math.min(100, gs.hp + 20);
+        
+        // ❌ Убираем старый alert
+        // alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}`);
+        
+        // ✅ Добавляем красивое уведомление
+        if (UI && typeof UI.showLevelUp === 'function') {
+            UI.showLevelUp(nextLevelNum);
         }
-    },
+        
+        UI.update();
+    }
+}, 
 
     resetGame() {
         const gs = window.gameState;
