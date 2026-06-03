@@ -12,7 +12,14 @@ export function handleItemClick(gameState, item, onCheckLevelUp, onUpdateUI) {
     const isHeal = (icon === '❤️');
     const isShield = (icon === '🛡️');
     const isBoost = (icon === '⚡');
-    const isMob = (icon === '👾' || icon === '😈');
+    
+    // 🔥 РАСШИРЕННОЕ ОПРЕДЕЛЕНИЕ МОБОВ — все новые иконки
+    const isMob = item.type.isMob === true || 
+                  icon === '👾' || icon === '😈' || 
+                  icon === '👻' || icon === '🧟' || 
+                  icon === '🐉' || icon === '🦇' || 
+                  icon === '👁️' || icon === '🤖' || 
+                  icon === '💀' || icon === '👑';
 
     if (!isMine) {
         handleHitCombo(gameState, onUpdateUI);
@@ -60,9 +67,11 @@ export function handleItemClick(gameState, item, onCheckLevelUp, onUpdateUI) {
             }
         }
 
-        let isHeavy = (icon === '😈');
-        gameState.score += Math.floor((isHeavy ? 200 : 100) * comboMult);
-        gameState.gold += (gameState.isFeverActive ? 120 : 60);
+        // 🆕 Награда зависит от сложности моба (mobTier)
+        const mobTier = item.mobTier || 10;
+        const baseReward = Math.floor(mobTier * 5); // 50 за 10 тапов, 500 за 100
+        gameState.score += Math.floor(baseReward * comboMult);
+        gameState.gold += (gameState.isFeverActive ? baseReward * 2 : baseReward);
         gameState.items = gameState.items.filter(i => i !== item);
         if (onCheckLevelUp) onCheckLevelUp();
     }

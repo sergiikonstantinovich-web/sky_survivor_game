@@ -67,55 +67,86 @@ const Engine = {
     },
 
     spawnItem() {
-        if (!window.gameState) return;
+    if (!window.gameState) return;
 
-        const lvl = window.gameState.currentLevel || 1;
-        const currentLevel = window.LEVEL_CONFIG?.[lvl];
-        
-        let baseRate = currentLevel?.spawnRate || 0.02; 
-        let rate = window.gameState.isFeverActive ? baseRate * 2.5 : baseRate;
+    const lvl = window.gameState.currentLevel || 1;
+    const currentLevel = window.LEVEL_CONFIG?.[lvl];
+    
+    let baseRate = currentLevel?.spawnRate || 0.02; 
+    let rate = window.gameState.isFeverActive ? baseRate * 2.5 : baseRate;
 
-        if (Math.random() > rate) return;
+    if (Math.random() > rate) return;
 
-        let type;
-        const rand = Math.random();
-        let mineChance = currentLevel?.mineChance || 0.40;
+    let type;
+    const rand = Math.random();
+    let mineChance = currentLevel?.mineChance || 0.40;
 
-        // Спасение игрока: если ХП < 30, с шансом 35% выкидываем аптечку
-        if (window.gameState.hp < 30 && Math.random() < 0.35) {
-            type = TYPES.HEAL;
+    // Спасение игрока: если ХП < 30, с шансом 35% выкидываем аптечку
+    if (window.gameState.hp < 30 && Math.random() < 0.35) {
+        type = window.TYPES.HEAL;
+    } else {
+        if (rand < 0.40) {
+            type = window.TYPES.GOLD;
+        } else if (rand < 0.40 + mineChance) {
+            type = window.TYPES.MINE;
+        } else if (rand < 0.75) {
+            type = window.TYPES.HEAL;
+        } else if (rand < 0.80) {
+            type = window.TYPES.BOOST;
+        } else if (rand < 0.85) {
+            type = window.TYPES.SHIELD;
         } else {
-            if (rand < 0.40) type = TYPES.GOLD;
-            else if (rand < 0.40 + mineChance) type = TYPES.MINE;
-            else if (rand < 0.75) type = TYPES.HEAL;
-            else if (rand < 0.80) type = TYPES.BOOST;
-            else if (rand < 0.85) type = TYPES.SHIELD;
-            else {
-                type = (Math.random() < 0.30) ? TYPES.HEAVY_MOB : TYPES.MOB;
+            // 🆕 ВЫБИРАЕМ МОБА ИЗ НОВЫХ ТИПОВ
+            const mobTiers = currentLevel?.mobTiers || [10];
+            const randomTier = mobTiers[Math.floor(Math.random() * mobTiers.length)];
+            const mobData = window.MOB_TYPES?.[randomTier];
+            
+            if (mobData) {
+                type = {
+                    icon: mobData.icon,
+                    color: mobData.color,
+                    radius: mobData.radius,
+                    isMob: true,
+                    hp: mobData.hp,
+                    maxHp: mobData.hp,
+                    mobTier: randomTier
+                };
+            } else {
+                // fallback на старого моба
+                type = (Math.random() < 0.30) ? window.TYPES.HEAVY_MOB : window.TYPES.MOB;
             }
         }
+    }
 
-        const radius = type.radius || 22;
-        let newX = Math.random() * (this.canvas.width - (radius * 2)) + radius;
-        const newY = this.canvas.height + radius + 10; 
+    const radius = type.radius || 22;
+    let newX = Math.random() * (this.canvas.width - (radius * 2)) + radius;
+    const newY = this.canvas.height + radius + 10;
 
-        let newItem = { 
-            x: newX, 
-            y: newY, 
-            speed: BASE_SPEED, 
-            type: type 
-        };
-        
-        if (type === TYPES.MOB) {
-            newItem.hp = 10; 
-            newItem.maxHp = 10;
-        } else if (type === TYPES.HEAVY_MOB) {
-            newItem.hp = 20;
-            newItem.maxHp = 20;
-        }
+    // 🆕 Скорость зависит от уровня сложности
+    const speedMult = currentLevel?.speedMult || 1.0;
+    
+    let newItem = { 
+        x: newX, 
+        y: newY, 
+        speed: window.BASE_SPEED * speedMult, 
+        type: type 
+    };
+    
+    // Устанавливаем HP для мобов
+    if (type.isMob) {
+        newItem.hp = type.hp;
+        newItem.maxHp = type.maxHp;
+        newItem.mobTier = type.mobTier;
+    } else if (type === window.TYPES.MOB) {
+        newItem.hp = 10;
+        newItem.maxHp = 10;
+    } else if (type === window.TYPES.HEAVY_MOB) {
+        newItem.hp = 20;
+        newItem.maxHp = 20;
+    }
 
-        window.gameState.items.push(newItem);
-    },
+    window.gameState.items.push(newItem);
+}, 
 
     render() {
         if (!window.gameState || !this.ctx) return;
@@ -153,9 +184,10 @@ const Engine = {
 
             // Полоска HP для мобов
             if (item.hp !== undefined) {
-                this.ctx.font = "bold 13px sans-serif";
+                this.ctx.font = "bold 10px sans-serif";
                 this.ctx.fillStyle = "#ffffff";
-                this.ctx.fillText(`HP: ${item.hp}/${item.maxHp}`, item.x, item.y + (item.type.radius ? item.type.radius - 27 : 28));
+                const tier = item.mobTier || Math.ceil(item.maxHp / 10) * 10;
+                this.ctx.fillText(`${item.hp}/${item.maxHp} (${tier})`, item.x, item.y + (item.type.radius ? item.type.radius - 20 : 28));
             }
 
             if (item.y < -100) {
