@@ -48,7 +48,7 @@
             <span id="combo-rank" class="combo-rank">D</span>
             <span id="combo-count" class="combo-count">x0</span>
         </div>
-        <button id="emergency-heal" class="emergency-heal hidden">
+       <button id="emergency-heal" class="emergency-heal hidden" onclick="if(window.Game && window.gameState && window.gameState.comboRank === 'S' && !window.gameState.healButtonUsed) window.Game.healFromEmergency()">
             <span class="heal-icon">❤️‍🩹</span>
             <span class="heal-value">+25</span>
         </button>
