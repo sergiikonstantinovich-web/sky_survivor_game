@@ -11,11 +11,32 @@ import { togglePause, toggleResearch } from './ui/gameUI.js';
 
 const Game = {
     isInitialized: false,
-
+    
+    startGame() {
+        if (UI && typeof UI.hideMainMenu === 'function') {
+            UI.hideMainMenu();
+        }
+        this.resetGame();
+        if (window.gameState) {
+            window.gameState.isPaused = false;
+            window.gameState.hp = 100;
+            window.gameState.score = 0;
+            window.gameState.gold = 0;
+            window.gameState.combo = 0;
+            window.gameState.comboRank = 'D';
+            window.gameState.fever = 0;
+            window.gameState.isFeverActive = false;
+            window.gameState.items = [];
+            window.gameState.splashes = [];
+            window.gameState.floatingTexts = [];
+        }
+        UI.update();
+    }, 
+    
     start() {
         if (this.isInitialized) return;
         this.isInitialized = true;
-
+    
         if (!window.gameState) {
             window.gameState = {
                 hp: 100, gold: 0, score: 0, currentLevel: 1,
@@ -32,13 +53,19 @@ const Game = {
                 }
             };
         }
-
+    
         Engine.init();
         this.setupEvents();
         UI.update();
         
+        // Показываем главное меню, игру не запускаем
+        if (UI && typeof UI.showMainMenu === 'function') {
+            UI.showMainMenu();
+        }
+        
+        // Запускаем игровой цикл (он будет рисовать, но игра на паузе)
         startGameLoop(window.gameState, () => this.resetGame(), () => UI.update());
-    },
+    }, 
 
     handleItemClick(item) {
         handleItemClick(window.gameState, item, () => this.checkLevelUp(), () => UI.update());
@@ -127,7 +154,9 @@ checkLevelUp() {
         const pauseScreen = document.getElementById('pause-screen');
         const researchScreen = document.getElementById('research-screen');
         const pauseBtn = document.getElementById('pause-btn');
+        const mainMenu = document.getElementById('main-menu');
         
+        if (mainMenu) mainMenu.classList.add('hidden');
         if (pauseScreen) pauseScreen.classList.add('hidden');
         if (researchScreen) researchScreen.classList.add('hidden');
         if (pauseBtn) pauseBtn.textContent = '⏸️';
@@ -154,7 +183,14 @@ checkLevelUp() {
         const researchBtn = document.getElementById('research-btn');
         const healBtn = document.getElementById('emergency-heal');
         const resumeBtn = document.getElementById('resume-btn');
-
+        const startBtn = document.getElementById('start-btn');
+        
+        if (startBtn) {
+            startBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.startGame();
+            };
+        }
         if (pauseBtn) {
             pauseBtn.onclick = (e) => {
                 e.stopPropagation();

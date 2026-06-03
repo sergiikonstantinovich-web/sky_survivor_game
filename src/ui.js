@@ -110,6 +110,7 @@ const UI = {
             }
         }
     }, 
+    
     showLevelUp(level) {
         const notification = document.getElementById('level-notification');
         const levelText = document.getElementById('level-text');
@@ -155,10 +156,34 @@ const UI = {
             screen.classList.add('hidden');
             if (window.Game && typeof window.Game.resetGame === 'function') {
                 window.Game.resetGame();
-            }
-        };
+                }
+            };
+        }
+    }, 
+    showMainMenu() {
+    const menu = document.getElementById('main-menu');
+    if (menu) {
+        menu.classList.remove('hidden');
     }
-}
+    if (window.gameState) {
+        window.gameState.isPaused = true;
+        window.gameState.isResearchOpen = false;
+        const pauseScreen = document.getElementById('pause-screen');
+        if (pauseScreen) pauseScreen.classList.add('hidden');
+        const researchScreen = document.getElementById('research-screen');
+        if (researchScreen) researchScreen.classList.add('hidden');
+        }
+    },
+
+    hideMainMenu() {
+        const menu = document.getElementById('main-menu');
+        if (menu) {
+            menu.classList.add('hidden');
+        }
+        if (window.gameState) {
+            window.gameState.isPaused = false;
+        }
+    }
 };
 
 // Экспортируем и вешаем в window (для обратной совместимости)

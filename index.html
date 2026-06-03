@@ -74,10 +74,9 @@
     
     <script type="module">
         import Game from './src/game.js';
-        document.addEventListener('DOMContentLoaded', () => {
-            Game.start();
-        });
         window.Game = Game;
+        // Ждём нажатия СТАРТ, игра сама не запускается
+        Game.start();  // ← ОСТАВЛЯЕМ, но внутри Game.start() теперь только инициализация и меню
     </script>
     <!-- Неоновое уведомление об уровне -->
     <div id="level-notification" class="level-notification hidden">
@@ -93,6 +92,15 @@
             <p>🎯 <span id="final-level">1</span> уровень</p>
         </div>
         <button id="gameover-restart-btn" class="gameover-btn">Попробовать снова</button>
+    </div>
+</div>
+<!-- ГЛАВНЫЙ ЭКРАН МЕНЮ -->
+<div id="main-menu" class="main-menu">
+    <div class="menu-container">
+        <h1 class="game-title">SKY SURVIVOR</h1>
+        <h2 class="game-subtitle">NEON TAP</h2>
+        <button id="start-btn" class="menu-btn start-btn">СТАРТ</button>
+        <div class="menu-version">v1.2.0 • ВЫЖИВИ В НЕОНЕ</div>
     </div>
 </div>
 </body>
