@@ -2,7 +2,7 @@
 import { LEVEL_CONFIG } from './config/gameConfig.js';
 import Engine from './engine.js';
 import UI from './ui.js';
-import { handleHitCombo, resetCombo, hideEmergencyHeal } from './combat/comboSystem.js';
+import { handleHitCombo, resetCombo, hideEmergencyHeal, hideSlowmoButton, showSlowMotionRing, hideSlowMotionRing } from './combat/comboSystem.js';
 import { updateFeverHud, activateFeverMode } from './combat/feverSystem.js';
 import { startGameTimers } from './core/gameTimers.js';
 import { startGameLoop } from './core/gameLoop.js';
@@ -36,7 +36,7 @@ const Game = {
     start() {
         if (this.isInitialized) return;
         this.isInitialized = true;
-    
+
         if (!window.gameState) {
             window.gameState = {
                 hp: 100, gold: 0, score: 0, currentLevel: 1,
@@ -46,6 +46,12 @@ const Game = {
                 combo: 0, comboRank: 'D',
                 fever: 0, isFeverActive: false, feverDuration: 0,
                 healButtonUsed: false,
+                // 👇 СЛОУМО ПОЛЯ
+                slowMotion: false,
+                slowMotionTimer: 0,
+                slowMotionMultiplier: 1,
+                slowmoActive: false,
+                slowmoButtonUsed: false,
                 research: {
                     clickPower: { lvl: 0, max: 5, cost: 40 },
                     goldBonus: { lvl: 0, max: 5, cost: 50 },
@@ -53,19 +59,17 @@ const Game = {
                 }
             };
         }
-    
+
         Engine.init();
         this.setupEvents();
         UI.update();
         
-        // Показываем главное меню, игру не запускаем
         if (UI && typeof UI.showMainMenu === 'function') {
             UI.showMainMenu();
         }
         
-        // Запускаем игровой цикл (он будет рисовать, но игра на паузе)
         startGameLoop(window.gameState, () => this.resetGame(), () => UI.update());
-    }, 
+    },
 
     handleItemClick(item) {
         handleItemClick(window.gameState, item, () => this.checkLevelUp(), () => UI.update());
@@ -84,7 +88,6 @@ const Game = {
         gs.healButtonUsed = true;
         UI.update();
         
-        // Зелёная вспышка
         const flash = document.createElement('div');
         flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#00ff00;z-index:9998;pointer-events:none;transition:opacity 0.3s ease-out;opacity:0.5';
         document.body.appendChild(flash);
@@ -94,79 +97,93 @@ const Game = {
         }, 50);
     },
 
-checkLevelUp() {
-    const gs = window.gameState;
-    if (!gs) return;
-    
-    const config = LEVEL_CONFIG?.[gs.currentLevel];
-    if (!config) return;
-
-    if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
-        gs.currentLevel++;
-        const nextLevelNum = gs.currentLevel;
-        const nextConfig = LEVEL_CONFIG[nextLevelNum];
-        gs.gold += 50;
-        gs.hp = Math.min(100, gs.hp + 20);
-        
-        // ❌ Убираем старый alert
-        // alert(`🎉 СЛЕДУЮЩИЙ УРОВЕНЬ!\n${nextConfig.name}`);
-        
-        // ✅ Добавляем красивое уведомление
-        if (UI && typeof UI.showLevelUp === 'function') {
-            UI.showLevelUp(nextLevelNum);
-        }
-        
-        UI.update();
-    }
-}, 
-
-    resetGame() {
+    checkLevelUp() {
         const gs = window.gameState;
         if (!gs) return;
         
-        gs.currentLevel = 1;
-        gs.hp = 100;
-        gs.gold = 0;
-        gs.score = 0;
-        gs.isShieldActive = false;
-        gs.shieldTimer = 0;
-        gs.isPaused = false;
-        gs.isResearchOpen = false;
-        gs.items = [];
-        gs.splashes = [];
-        gs.floatingTexts = [];
-        
-        resetCombo(gs);
-        gs.fever = 0;
-        gs.isFeverActive = false;
-        gs.feverDuration = 0;
-        gs.healButtonUsed = false;
-        updateFeverHud(gs);
-        hideEmergencyHeal();
-        window.BASE_SPEED = 2.5;
+        const config = LEVEL_CONFIG?.[gs.currentLevel];
+        if (!config) return;
 
-        gs.research = {
-            clickPower: { lvl: 0, max: 5, cost: 40 },
-            goldBonus: { lvl: 0, max: 5, cost: 50 },
-            shieldDuration: { lvl: 0, max: 5, cost: 60 }
-        };
-        
-        const pauseScreen = document.getElementById('pause-screen');
-        const researchScreen = document.getElementById('research-screen');
-        const pauseBtn = document.getElementById('pause-btn');
-        const mainMenu = document.getElementById('main-menu');
-        
-        if (mainMenu) mainMenu.classList.add('hidden');
-        if (pauseScreen) pauseScreen.classList.add('hidden');
-        if (researchScreen) researchScreen.classList.add('hidden');
-        if (pauseBtn) pauseBtn.textContent = '⏸️';
-        
-        const ultBtn = document.getElementById('ult-btn');
-        if (ultBtn) {
-            ultBtn.classList.remove('ready');
-            ultBtn.innerHTML = '';
+        if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
+            gs.currentLevel++;
+            const nextLevelNum = gs.currentLevel;
+            const nextConfig = LEVEL_CONFIG[nextLevelNum];
+            gs.gold += 50;
+            gs.hp = Math.min(100, gs.hp + 20);
+            
+            if (UI && typeof UI.showLevelUp === 'function') {
+                UI.showLevelUp(nextLevelNum);
+            }
+            
+            UI.update();
         }
-        
+    }, 
+
+    resetGame() {
+    const gs = window.gameState;
+    if (!gs) return;
+    
+    gs.currentLevel = 1;
+    gs.hp = 100;
+    gs.gold = 0;
+    gs.score = 0;
+    gs.isShieldActive = false;
+    gs.shieldTimer = 0;
+    gs.isPaused = false;
+    gs.isResearchOpen = false;
+    gs.items = [];
+    gs.splashes = [];
+    gs.floatingTexts = [];
+    
+    resetCombo(gs);
+    gs.fever = 0;
+    gs.isFeverActive = false;
+    gs.feverDuration = 0;
+    gs.healButtonUsed = false;
+    
+    // 👇 СБРОС СЛОУМО
+    gs.slowMotion = false;
+    gs.slowMotionTimer = 0;
+    gs.slowMotionMultiplier = 1;
+    gs.slowmoActive = false;
+    gs.slowmoButtonUsed = false;
+    
+    // 👇 ВАЖНО: возвращаем базовую скорость
+    window.BASE_SPEED = 2.5;
+    
+    updateFeverHud(gs);
+    hideEmergencyHeal();
+    hideSlowmoButton();
+    hideSlowMotionRing();
+
+    gs.research = {
+        clickPower: { lvl: 0, max: 5, cost: 40 },
+        goldBonus: { lvl: 0, max: 5, cost: 50 },
+        shieldDuration: { lvl: 0, max: 5, cost: 60 }
+    };
+    
+    const pauseScreen = document.getElementById('pause-screen');
+    const researchScreen = document.getElementById('research-screen');
+    const pauseBtn = document.getElementById('pause-btn');
+    const mainMenu = document.getElementById('main-menu');
+    const slowmoBtn = document.getElementById('slowmo-btn');
+    
+    if (mainMenu) mainMenu.classList.add('hidden');
+    if (pauseScreen) pauseScreen.classList.add('hidden');
+    if (researchScreen) researchScreen.classList.add('hidden');
+    if (pauseBtn) pauseBtn.textContent = '⏸️';
+    if (slowmoBtn) slowmoBtn.classList.add('hidden');
+    // Сброс таймера слоумо
+    if (gs.slowmoTimeoutId) {
+        clearTimeout(gs.slowmoTimeoutId);
+        gs.slowmoTimeoutId = null;
+    }
+    const ultBtn = document.getElementById('ult-btn');
+    if (ultBtn) {
+        ultBtn.classList.remove('ready');
+        ultBtn.innerHTML = '';
+    }
+    
         UI.update();
     },
 
@@ -178,12 +195,52 @@ checkLevelUp() {
         toggleResearch(window.gameState);
     },
 
+    activateSlowmo() {
+        const gs = window.gameState;
+        if (!gs || gs.slowmoActive) return;
+        
+        console.log('🐢 Активация слоумо!');
+        
+        gs.slowmoActive = true;
+        gs.slowmoTimer = 3000;
+        gs.slowmoMultiplier = 0.5;
+        
+        // Применяем слоумо ко ВСЕМ предметам на экране
+        if (gs.items) {
+            gs.items.forEach(item => {
+                item.speed = item.speed * 0.5;
+            });
+        }
+        
+        window.BASE_SPEED = 2.5 * 0.5;
+        gs.slowmoButtonUsed = true;
+        
+        hideSlowmoButton();
+        showSlowMotionRing();
+        
+        setTimeout(() => {
+            gs.slowmoActive = false;
+            
+            // Возвращаем скорость ВСЕМ предметам
+            if (gs.items) {
+                gs.items.forEach(item => {
+                    item.speed = item.speed / 0.5;
+                });
+            }
+            
+            window.BASE_SPEED = 2.5;
+            hideSlowMotionRing();
+            console.log('🐢 Слоумо закончился');
+        }, 3000);
+    },
+
     setupEvents() {
         const pauseBtn = document.getElementById('pause-btn');
         const researchBtn = document.getElementById('research-btn');
         const healBtn = document.getElementById('emergency-heal');
         const resumeBtn = document.getElementById('resume-btn');
         const startBtn = document.getElementById('start-btn');
+        const slowmoBtn = document.getElementById('slowmo-btn');
         
         if (startBtn) {
             startBtn.onclick = (e) => {
@@ -213,6 +270,12 @@ checkLevelUp() {
             resumeBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.togglePause();
+            };
+        }
+        if (slowmoBtn) {
+            slowmoBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.activateSlowmo();
             };
         }
 
