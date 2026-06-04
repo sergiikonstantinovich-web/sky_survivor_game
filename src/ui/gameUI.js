@@ -1,5 +1,6 @@
 // ========== src/ui/gameUI.js ==========
 import UI from '../ui.js';
+import { initResearchUI } from './researchUI.js';
 
 export function togglePause(gameState) {
     if (!gameState || gameState.hp <= 0 || gameState.isResearchOpen) return;
@@ -25,7 +26,10 @@ export function toggleResearch(gameState) {
     const researchScreen = document.getElementById('research-screen');
     
     if (gameState.isResearchOpen) {
-        if (researchScreen) researchScreen.classList.remove('hidden');
+        if (researchScreen) {
+            researchScreen.classList.remove('hidden');
+            initResearchUI(); // 👈 ДОБАВИТЬ ЭТУ СТРОКУ
+        }
     } else {
         if (researchScreen) researchScreen.classList.add('hidden');
     }

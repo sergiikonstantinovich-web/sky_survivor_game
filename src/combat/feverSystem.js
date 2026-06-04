@@ -1,5 +1,6 @@
 // ========== src/combat/feverSystem.js ==========
 import Engine from '../engine.js';
+import { calculateFeverDamage, getFeverKillTier } from '../core/applyUpgrades.js';
 
 export function updateFeverHud(gameState) {
     const bar = document.getElementById('fever-bar-fill');
@@ -41,13 +42,33 @@ export function activateFeverMode(gameState, onCheckLevelUp, onUpdateUI) {
         setTimeout(() => flash.remove(), 400);
     }, 30);
     
-    // Урон всем мобам
+    // УЛЬТИМЕЙТ ОЧИСТКА — улучшенная версия
     if (gameState.items && gameState.items.length > 0) {
-        let killed = false;
+        const feverDamage = calculateFeverDamage(gameState, 10);
+        const maxKillTier = getFeverKillTier(gameState);
+        
         gameState.items = gameState.items.filter(item => {
-            if (item.hp !== undefined) {
-                item.hp -= 10;
-                Engine.createFloatingText(item.x, item.y, "-10 🔥", true);
+            // Проверяем, является ли предмет мобом
+            const isMob = item.type?.isMob === true || 
+                          item.hp !== undefined ||
+                          (item.type?.icon === '👾') || (item.type?.icon === '😈') ||
+                          (item.type?.icon === '👻') || (item.type?.icon === '🧟') ||
+                          (item.type?.icon === '🐉') || (item.type?.icon === '🦇') ||
+                          (item.type?.icon === '👁️') || (item.type?.icon === '🤖') ||
+                          (item.type?.icon === '💀') || (item.type?.icon === '👑');
+            
+            if (isMob) {
+                const mobTier = item.mobTier || 10;
+                
+                // Если ульта может убить моба этого tier — одним ударом
+                if (mobTier <= maxKillTier) {
+                    item.hp = 0;
+                    const killText = `💀 УБИТ 💀 (${mobTier})`;
+                    Engine.createFloatingText(item.x, item.y, killText, true);
+                } else {
+                    item.hp -= feverDamage;
+                    Engine.createFloatingText(item.x, item.y, `-${feverDamage} 🔥`, true);
+                }
                 
                 if (item.hp <= 0) {
                     let comboMult = 1;
@@ -55,18 +76,18 @@ export function activateFeverMode(gameState, onCheckLevelUp, onUpdateUI) {
                     else if (gameState.comboRank === 'B') comboMult = 1.5;
                     else if (gameState.comboRank === 'A') comboMult = 1.8;
                     else if (gameState.comboRank === 'S') comboMult = 2.5;
+                    else if (gameState.comboRank === 'SS') comboMult = 3.0;
                     
-                    const isHeavy = (item.type && item.type.icon === '😈');
-                    gameState.score += Math.floor((isHeavy ? 200 : 100) * comboMult);
+                    const baseReward = Math.floor(mobTier * 5);
+                    gameState.score += Math.floor(baseReward * comboMult);
                     gameState.gold += 120;
-                    killed = true;
-                    return false;
+                    return false; // удаляем моба
                 }
-                return true;
+                return true; // оставляем, но хп уменьшили
             }
-            return true;
+            return true; // не моб — оставляем
         });
-        if (killed && onCheckLevelUp) onCheckLevelUp();
+        if (onCheckLevelUp) onCheckLevelUp();
     }
     
     Engine.triggerScreenShake();

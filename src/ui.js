@@ -183,7 +183,44 @@ const UI = {
         if (window.gameState) {
             window.gameState.isPaused = false;
         }
+    }, 
+    showNotification(message, color = '#ffd700') {
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${color};
+        color: #1a1a2e;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 10px 20px;
+        border-radius: 30px;
+        z-index: 3000;
+        text-align: center;
+        white-space: nowrap;
+        box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        animation: purchaseNotify 1s ease-out forwards;
+        pointer-events: none;
+        font-family: sans-serif;
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 1000);
+},
+
+showPurchaseEffect(upgradeName, cost, newLevel) {
+    this.showNotification(`✅ ${upgradeName} ${newLevel} lvl! -${cost} 💰`, '#ffd700');
+    
+    const goldEl = document.getElementById('gold-val');
+    if (goldEl) {
+        goldEl.style.animation = 'goldFlash 0.3s ease-out';
+        setTimeout(() => {
+            goldEl.style.animation = '';
+        }, 300);
     }
+},
 };
 
 // Экспортируем и вешаем в window (для обратной совместимости)

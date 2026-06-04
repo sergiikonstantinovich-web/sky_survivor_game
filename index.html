@@ -70,7 +70,9 @@
         };
     </script>
 
-    <!-- НОВОЕ: подключаем модуль (он НЕ ломает старые скрипты) -->
+    <!-- Модули -->
+    <script type="module" src="src/config/techTree.js"></script>
+    <script type="module" src="src/core/saveSystem.js"></script>
     <script type="module" src="src/ui.js"></script>
     <script type="module" src="src/engine.js"></script>
     <script type="module" src="src/game.js"></script>
@@ -78,32 +80,33 @@
     <script type="module">
         import Game from './src/game.js';
         window.Game = Game;
-        // Ждём нажатия СТАРТ, игра сама не запускается
-        Game.start();  // ← ОСТАВЛЯЕМ, но внутри Game.start() теперь только инициализация и меню
+        Game.start();
     </script>
+    
     <!-- Неоновое уведомление об уровне -->
     <div id="level-notification" class="level-notification hidden">
         <span id="level-text">LEVEL 1</span>
     </div>
+    
     <!-- Экран Game Over -->
-<div id="gameover-screen" class="gameover-screen hidden">
-    <div class="gameover-content">
-        <h1 class="gameover-title">GAME OVER</h1>
-        <div class="gameover-stats">
-            <p>🏆 <span id="final-score">0</span> очков</p>
-            <p>💰 <span id="final-gold">0</span> золота</p>
-            <p>🎯 <span id="final-level">1</span> уровень</p>
+    <div id="gameover-screen" class="gameover-screen hidden">
+        <div class="gameover-content">
+            <h1 class="gameover-title">GAME OVER</h1>
+            <div class="gameover-stats">
+                <p>🏆 <span id="final-score">0</span> очков</p>
+                <p>💰 <span id="final-gold">0</span> золота</p>
+                <p>🎯 <span id="final-level">1</span> уровень</p>
+            </div>
+            <button id="gameover-restart-btn" class="gameover-btn">Попробовать снова</button>
         </div>
-        <button id="gameover-restart-btn" class="gameover-btn">Попробовать снова</button>
     </div>
-</div>
-<!-- ГЛАВНЫЙ ЭКРАН МЕНЮ -->
-<!-- ГЛАВНЫЙ ЭКРАН МЕНЮ (без квадрата) -->
-<div id="main-menu" class="main-menu">
-    <h1 class="game-title">SKY SURVIVOR</h1>
-    <h2 class="game-subtitle">NEON TAP</h2>
-    <button id="start-btn" class="menu-btn start-btn">СТАРТ</button>
-    <div class="menu-version">v1.2.0 • ВЫЖИВИ В НЕОНЕ</div>
-</div>
+
+    <!-- ГЛАВНЫЙ ЭКРАН МЕНЮ -->
+    <div id="main-menu" class="main-menu">
+        <h1 class="game-title">SKY SURVIVOR</h1>
+        <h2 class="game-subtitle">NEON TAP</h2>
+        <button id="start-btn" class="menu-btn start-btn">СТАРТ</button>
+        <div class="menu-version">v1.2.0 • ВЫЖИВИ В НЕОНЕ</div>
+    </div>
 </body>
 </html>

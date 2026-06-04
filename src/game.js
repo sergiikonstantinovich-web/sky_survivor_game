@@ -8,6 +8,9 @@ import { startGameTimers } from './core/gameTimers.js';
 import { startGameLoop } from './core/gameLoop.js';
 import { handleItemClick } from './core/clickHandler.js';
 import { togglePause, toggleResearch } from './ui/gameUI.js';
+import { loadGame, saveGame } from './core/saveSystem.js';
+import { TECH_TREE, getUpgradeCost } from './config/techTree.js';
+import { refreshResearchUI } from './ui/researchUI.js';
 
 const Game = {
     isInitialized: false,
@@ -21,7 +24,6 @@ const Game = {
             window.gameState.isPaused = false;
             window.gameState.hp = 100;
             window.gameState.score = 0;
-            window.gameState.gold = 0;
             window.gameState.combo = 0;
             window.gameState.comboRank = 'D';
             window.gameState.fever = 0;
@@ -46,19 +48,40 @@ const Game = {
                 combo: 0, comboRank: 'D',
                 fever: 0, isFeverActive: false, feverDuration: 0,
                 healButtonUsed: false,
-                // 👇 СЛОУМО ПОЛЯ
                 slowMotion: false,
                 slowMotionTimer: 0,
                 slowMotionMultiplier: 1,
                 slowmoActive: false,
                 slowmoButtonUsed: false,
+                slowmoTimeoutId: null,
+                // Новая структура исследований
                 research: {
-                    clickPower: { lvl: 0, max: 5, cost: 40 },
-                    goldBonus: { lvl: 0, max: 5, cost: 50 },
-                    shieldDuration: { lvl: 0, max: 5, cost: 60 }
+                    // Атака
+                    clickPower: 0,
+                    critChance: 0,
+                    critDamage: 0,
+                    // Защита
+                    shieldDuration: 0,
+                    passiveRegen: 0,
+                    damageReduction: 0,
+                    // Экономика
+                    goldBonus: 0,
+                    scoreBonus: 0,
+                    cashback: 0,
+                    // Специальные
+                    feverDamage: 0,
+                    healBonus: 0,
+                    slowmoDuration: 0,
+                    // Комбо
+                    startCombo: 0,
+                    comboTime: 0,
+                    ssMultiplier: 0
                 }
             };
         }
+        
+        // Загружаем сохранение
+        loadGame(window.gameState);
 
         Engine.init();
         this.setupEvents();
@@ -73,20 +96,24 @@ const Game = {
 
     handleItemClick(item) {
         handleItemClick(window.gameState, item, () => this.checkLevelUp(), () => UI.update());
+        saveGame(window.gameState); // Сохраняем после клика
     },
 
     activateFeverMode() {
         activateFeverMode(window.gameState, () => this.checkLevelUp(), () => UI.update());
+        saveGame(window.gameState);
     },
 
     healFromEmergency() {
         const gs = window.gameState;
         if (!gs || gs.hp <= 0) return;
         
-        gs.hp = Math.min(100, gs.hp + 25);
+        const healBonus = (gs.research.healBonus || 0) * 5;
+        gs.hp = Math.min(100, gs.hp + 25 + healBonus);
         hideEmergencyHeal();
         gs.healButtonUsed = true;
         UI.update();
+        saveGame(gs);
         
         const flash = document.createElement('div');
         flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#00ff00;z-index:9998;pointer-events:none;transition:opacity 0.3s ease-out;opacity:0.5';
@@ -97,94 +124,107 @@ const Game = {
         }, 50);
     },
 
-    checkLevelUp() {
-        const gs = window.gameState;
-        if (!gs) return;
-        
-        const config = LEVEL_CONFIG?.[gs.currentLevel];
-        if (!config) return;
-
-        if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
-            gs.currentLevel++;
-            const nextLevelNum = gs.currentLevel;
-            const nextConfig = LEVEL_CONFIG[nextLevelNum];
-            gs.gold += 50;
-            gs.hp = Math.min(100, gs.hp + 20);
-            
-            if (UI && typeof UI.showLevelUp === 'function') {
-                UI.showLevelUp(nextLevelNum);
-            }
-            
-            UI.update();
-        }
-    }, 
-
-    resetGame() {
+checkLevelUp() {
     const gs = window.gameState;
     if (!gs) return;
     
-    gs.currentLevel = 1;
-    gs.hp = 100;
-    gs.gold = 0;
-    gs.score = 0;
-    gs.isShieldActive = false;
-    gs.shieldTimer = 0;
-    gs.isPaused = false;
-    gs.isResearchOpen = false;
-    gs.items = [];
-    gs.splashes = [];
-    gs.floatingTexts = [];
-    
-    resetCombo(gs);
-    gs.fever = 0;
-    gs.isFeverActive = false;
-    gs.feverDuration = 0;
-    gs.healButtonUsed = false;
-    
-    // 👇 СБРОС СЛОУМО
-    gs.slowMotion = false;
-    gs.slowMotionTimer = 0;
-    gs.slowMotionMultiplier = 1;
-    gs.slowmoActive = false;
-    gs.slowmoButtonUsed = false;
-    
-    // 👇 ВАЖНО: возвращаем базовую скорость
-    window.BASE_SPEED = 2.5;
-    
-    updateFeverHud(gs);
-    hideEmergencyHeal();
-    hideSlowmoButton();
-    hideSlowMotionRing();
+    const config = LEVEL_CONFIG?.[gs.currentLevel];
+    if (!config) return;
 
-    gs.research = {
-        clickPower: { lvl: 0, max: 5, cost: 40 },
-        goldBonus: { lvl: 0, max: 5, cost: 50 },
-        shieldDuration: { lvl: 0, max: 5, cost: 60 }
-    };
-    
-    const pauseScreen = document.getElementById('pause-screen');
-    const researchScreen = document.getElementById('research-screen');
-    const pauseBtn = document.getElementById('pause-btn');
-    const mainMenu = document.getElementById('main-menu');
-    const slowmoBtn = document.getElementById('slowmo-btn');
-    
-    if (mainMenu) mainMenu.classList.add('hidden');
-    if (pauseScreen) pauseScreen.classList.add('hidden');
-    if (researchScreen) researchScreen.classList.add('hidden');
-    if (pauseBtn) pauseBtn.textContent = '⏸️';
-    if (slowmoBtn) slowmoBtn.classList.add('hidden');
-    // Сброс таймера слоумо
-    if (gs.slowmoTimeoutId) {
-        clearTimeout(gs.slowmoTimeoutId);
-        gs.slowmoTimeoutId = null;
-    }
-    const ultBtn = document.getElementById('ult-btn');
-    if (ultBtn) {
-        ultBtn.classList.remove('ready');
-        ultBtn.innerHTML = '';
-    }
-    
+    if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
+        gs.currentLevel++;
+        const nextLevelNum = gs.currentLevel;
+        const nextConfig = LEVEL_CONFIG[nextLevelNum];
+        gs.gold += 50;
+        gs.hp = Math.min(100, gs.hp + 20);
+        
+        // 🆕 Если слоумо активен — пересчитываем скорость после левелапа
+        if (gs.slowmoActive) {
+            // Скорость всех предметов должна оставаться замедленной
+            if (gs.items) {
+                gs.items.forEach(item => {
+                    // Возвращаем базовую скорость, потом применяем слоумо
+                    const currentSpeed = item.speed;
+                    const baseSpeed = currentSpeed / 0.5;
+                    item.speed = baseSpeed * 0.5;
+                });
+            }
+            window.BASE_SPEED = 2.5 * 0.5;
+        } else {
+            window.BASE_SPEED = 2.5;
+        }
+        
+        if (UI && typeof UI.showLevelUp === 'function') {
+            UI.showLevelUp(nextLevelNum);
+        }
+        
         UI.update();
+        saveGame(gs);
+    }
+},
+
+    resetGame() {
+        const gs = window.gameState;
+        if (!gs) return;
+        
+        gs.currentLevel = 1;
+        gs.hp = 100;
+        gs.gold = 0;
+        gs.score = 0;
+        gs.isShieldActive = false;
+        gs.shieldTimer = 0;
+        gs.isPaused = false;
+        gs.isResearchOpen = false;
+        gs.items = [];
+        gs.splashes = [];
+        gs.floatingTexts = [];
+        
+        resetCombo(gs);
+        gs.fever = 0;
+        gs.isFeverActive = false;
+        gs.feverDuration = 0;
+        gs.healButtonUsed = false;
+        
+        gs.slowMotion = false;
+        gs.slowMotionTimer = 0;
+        gs.slowMotionMultiplier = 1;
+        gs.slowmoActive = false;
+        gs.slowmoButtonUsed = false;
+        
+        if (gs.slowmoTimeoutId) {
+            clearTimeout(gs.slowmoTimeoutId);
+            gs.slowmoTimeoutId = null;
+        }
+        
+        window.BASE_SPEED = 2.5;
+        
+        updateFeverHud(gs);
+        hideEmergencyHeal();
+        hideSlowmoButton();
+        hideSlowMotionRing();
+
+        // Исследования НЕ сбрасываем! Они сохраняются
+        
+        const pauseScreen = document.getElementById('pause-screen');
+        const researchScreen = document.getElementById('research-screen');
+        const pauseBtn = document.getElementById('pause-btn');
+        const mainMenu = document.getElementById('main-menu');
+        const slowmoBtn = document.getElementById('slowmo-btn');
+        
+        if (mainMenu) mainMenu.classList.add('hidden');
+        if (pauseScreen) pauseScreen.classList.add('hidden');
+        if (researchScreen) researchScreen.classList.add('hidden');
+        if (pauseBtn) pauseBtn.textContent = '⏸️';
+        if (slowmoBtn) slowmoBtn.classList.add('hidden');
+        
+        const ultBtn = document.getElementById('ult-btn');
+        if (ultBtn) {
+            ultBtn.classList.remove('ready');
+            ultBtn.innerHTML = '';
+        }
+        
+        UI.update();
+        saveGame(gs);
     },
 
     togglePause() {
@@ -199,13 +239,15 @@ const Game = {
         const gs = window.gameState;
         if (!gs || gs.slowmoActive) return;
         
-        console.log('🐢 Активация слоумо!');
+        const slowmoBonus = (gs.research.slowmoDuration || 0) * 500;
+        const duration = 3000 + slowmoBonus;
+        
+        console.log('🐢 Активация слоумо!', duration);
         
         gs.slowmoActive = true;
-        gs.slowmoTimer = 3000;
+        gs.slowmoTimer = duration;
         gs.slowmoMultiplier = 0.5;
         
-        // Применяем слоумо ко ВСЕМ предметам на экране
         if (gs.items) {
             gs.items.forEach(item => {
                 item.speed = item.speed * 0.5;
@@ -218,10 +260,11 @@ const Game = {
         hideSlowmoButton();
         showSlowMotionRing();
         
-        setTimeout(() => {
+        if (gs.slowmoTimeoutId) clearTimeout(gs.slowmoTimeoutId);
+        
+        gs.slowmoTimeoutId = setTimeout(() => {
             gs.slowmoActive = false;
             
-            // Возвращаем скорость ВСЕМ предметам
             if (gs.items) {
                 gs.items.forEach(item => {
                     item.speed = item.speed / 0.5;
@@ -231,9 +274,57 @@ const Game = {
             window.BASE_SPEED = 2.5;
             hideSlowMotionRing();
             console.log('🐢 Слоумо закончился');
-        }, 3000);
+        }, duration);
+        
+        saveGame(gs);
     },
-
+buyUpgrade(categoryKey, upgradeKey) {
+    const gs = window.gameState;
+    if (!gs) return;
+    
+    const category = TECH_TREE[categoryKey];
+    if (!category) return;
+    
+    const upgrade = category[upgradeKey];
+    if (!upgrade) return;
+    
+    const currentLevel = gs.research[upgradeKey] || 0;
+    if (currentLevel >= upgrade.maxLevel) return;
+    
+    const cost = getUpgradeCost(upgrade, currentLevel);
+    if (gs.gold < cost) {
+        if (UI && typeof UI.showNotification === 'function') {
+            UI.showNotification(`❌ Не хватает ${cost - gs.gold} золота!`, '#ff4444');
+        }
+        return;
+    }
+    
+    // Покупаем
+    gs.gold -= cost;
+    gs.research[upgradeKey] = currentLevel + 1;
+    
+    // Применяем кэшбэк
+    const cashbackLevel = gs.research.cashback || 0;
+    if (cashbackLevel > 0) {
+        const refund = Math.floor(cost * (cashbackLevel * 0.05));
+        gs.gold += refund;
+        if (UI && typeof UI.showNotification === 'function') {
+            UI.showNotification(`🔄 Кэшбэк: +${refund}`, '#88ff88');
+        }
+    }
+    
+    // Визуальный эффект
+    if (UI && typeof UI.showPurchaseEffect === 'function') {
+        UI.showPurchaseEffect(upgrade.name, cost, currentLevel + 1);
+    }
+    
+    // Сохраняем
+    saveGame(gs);
+    
+    // Обновляем UI дерева
+    refreshResearchUI();
+    UI.update();
+},
     setupEvents() {
         const pauseBtn = document.getElementById('pause-btn');
         const researchBtn = document.getElementById('research-btn');

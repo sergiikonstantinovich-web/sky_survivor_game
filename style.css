@@ -906,3 +906,37 @@ canvas {
         opacity: 0.6;
     }
 }
+
+@keyframes purchaseNotify {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: translateX(-50%) scale(1.1);
+    }
+    80% {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.8);
+    }
+}
+
+@keyframes goldFlash {
+    0% {
+        text-shadow: 0 0 0 #ffd700;
+        color: #ffd700;
+    }
+    50% {
+        text-shadow: 0 0 15px #ffaa00;
+        color: #ffffff;
+    }
+    100% {
+        text-shadow: 0 0 0 #ffd700;
+        color: #ffd700;
+    }
+}
