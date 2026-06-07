@@ -10,7 +10,7 @@ export function saveGame(gameState) {
         savedAt: Date.now()
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-    console.log('💾 Игра сохранена');
+    console.log('💾 Игра сохранена (золото:', gameState.gold, ')');
 }
 
 // Загружаем прогресс
@@ -23,9 +23,9 @@ export function loadGame(gameState) {
     
     try {
         const saveData = JSON.parse(saved);
-        gameState.gold = saveData.gold;
+        gameState.gold = saveData.gold || 0;
         gameState.research = saveData.research;
-        console.log('📀 Прогресс загружен!');
+        console.log('📀 Прогресс загружен! Золото:', gameState.gold);
         return true;
     } catch (e) {
         console.error('Ошибка загрузки:', e);

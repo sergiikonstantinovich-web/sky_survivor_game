@@ -96,7 +96,7 @@ const Game = {
 
     handleItemClick(item) {
         handleItemClick(window.gameState, item, () => this.checkLevelUp(), () => UI.update());
-        saveGame(window.gameState); // Сохраняем после клика
+        saveGame(window.gameState);
     },
 
     activateFeverMode() {
@@ -124,52 +124,52 @@ const Game = {
         }, 50);
     },
 
-checkLevelUp() {
-    const gs = window.gameState;
-    if (!gs) return;
-    
-    const config = LEVEL_CONFIG?.[gs.currentLevel];
-    if (!config) return;
+    checkLevelUp() {
+        const gs = window.gameState;
+        if (!gs) return;
+        
+        const config = LEVEL_CONFIG?.[gs.currentLevel];
+        if (!config) return;
 
-    if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
-        gs.currentLevel++;
-        const nextLevelNum = gs.currentLevel;
-        const nextConfig = LEVEL_CONFIG[nextLevelNum];
-        gs.gold += 50;
-        gs.hp = Math.min(100, gs.hp + 20);
-        
-        // 🆕 Если слоумо активен — пересчитываем скорость после левелапа
-        if (gs.slowmoActive) {
-            // Скорость всех предметов должна оставаться замедленной
-            if (gs.items) {
-                gs.items.forEach(item => {
-                    // Возвращаем базовую скорость, потом применяем слоумо
-                    const currentSpeed = item.speed;
-                    const baseSpeed = currentSpeed / 0.5;
-                    item.speed = baseSpeed * 0.5;
-                });
+        if (gs.score >= config.targetScore && LEVEL_CONFIG?.[gs.currentLevel + 1]) {
+            gs.currentLevel++;
+            const nextLevelNum = gs.currentLevel;
+            const nextConfig = LEVEL_CONFIG[nextLevelNum];
+            gs.gold += 50;
+            gs.hp = Math.min(100, gs.hp + 20);
+            
+            if (gs.slowmoActive) {
+                if (gs.items) {
+                    gs.items.forEach(item => {
+                        const currentSpeed = item.speed;
+                        const baseSpeed = currentSpeed / 0.5;
+                        item.speed = baseSpeed * 0.5;
+                    });
+                }
+                window.BASE_SPEED = 2.5 * 0.5;
+            } else {
+                window.BASE_SPEED = 2.5;
             }
-            window.BASE_SPEED = 2.5 * 0.5;
-        } else {
-            window.BASE_SPEED = 2.5;
+            
+            if (UI && typeof UI.showLevelUp === 'function') {
+                UI.showLevelUp(nextLevelNum);
+            }
+            
+            UI.update();
+            saveGame(gs);
         }
-        
-        if (UI && typeof UI.showLevelUp === 'function') {
-            UI.showLevelUp(nextLevelNum);
-        }
-        
-        UI.update();
-        saveGame(gs);
-    }
-},
+    },
 
     resetGame() {
         const gs = window.gameState;
         if (!gs) return;
         
+        // 💰 СОХРАНЯЕМ ЗОЛОТО И ИССЛЕДОВАНИЯ ПЕРЕД СБРОСОМ
+        const savedGold = gs.gold;
+        const savedResearch = JSON.parse(JSON.stringify(gs.research));
+        
         gs.currentLevel = 1;
         gs.hp = 100;
-        gs.gold = 0;
         gs.score = 0;
         gs.isShieldActive = false;
         gs.shieldTimer = 0;
@@ -198,12 +198,14 @@ checkLevelUp() {
         
         window.BASE_SPEED = 2.5;
         
+        // 💰 ВОССТАНАВЛИВАЕМ ЗОЛОТО И ИССЛЕДОВАНИЯ
+        gs.gold = savedGold;
+        gs.research = savedResearch;
+        
         updateFeverHud(gs);
         hideEmergencyHeal();
         hideSlowmoButton();
         hideSlowMotionRing();
-
-        // Исследования НЕ сбрасываем! Они сохраняются
         
         const pauseScreen = document.getElementById('pause-screen');
         const researchScreen = document.getElementById('research-screen');
@@ -224,7 +226,8 @@ checkLevelUp() {
         }
         
         UI.update();
-        saveGame(gs);
+        // ❌ НЕ СОХРАНЯЕМ ПОСЛЕ СМЕРТИ, ЧТОБЫ НЕ ЗАТЕРЕТЬ ЗОЛОТО
+        // saveGame(gs);
     },
 
     togglePause() {
@@ -278,53 +281,49 @@ checkLevelUp() {
         
         saveGame(gs);
     },
-buyUpgrade(categoryKey, upgradeKey) {
-    const gs = window.gameState;
-    if (!gs) return;
     
-    const category = TECH_TREE[categoryKey];
-    if (!category) return;
-    
-    const upgrade = category[upgradeKey];
-    if (!upgrade) return;
-    
-    const currentLevel = gs.research[upgradeKey] || 0;
-    if (currentLevel >= upgrade.maxLevel) return;
-    
-    const cost = getUpgradeCost(upgrade, currentLevel);
-    if (gs.gold < cost) {
-        if (UI && typeof UI.showNotification === 'function') {
-            UI.showNotification(`❌ Не хватает ${cost - gs.gold} золота!`, '#ff4444');
+    buyUpgrade(categoryKey, upgradeKey) {
+        const gs = window.gameState;
+        if (!gs) return;
+        
+        const category = TECH_TREE[categoryKey];
+        if (!category) return;
+        
+        const upgrade = category[upgradeKey];
+        if (!upgrade) return;
+        
+        const currentLevel = gs.research[upgradeKey] || 0;
+        if (currentLevel >= upgrade.maxLevel) return;
+        
+        const cost = getUpgradeCost(upgrade, currentLevel);
+        if (gs.gold < cost) {
+            if (UI && typeof UI.showNotification === 'function') {
+                UI.showNotification(`❌ Не хватает ${cost - gs.gold} золота!`, '#ff4444');
+            }
+            return;
         }
-        return;
-    }
-    
-    // Покупаем
-    gs.gold -= cost;
-    gs.research[upgradeKey] = currentLevel + 1;
-    
-    // Применяем кэшбэк
-    const cashbackLevel = gs.research.cashback || 0;
-    if (cashbackLevel > 0) {
-        const refund = Math.floor(cost * (cashbackLevel * 0.05));
-        gs.gold += refund;
-        if (UI && typeof UI.showNotification === 'function') {
-            UI.showNotification(`🔄 Кэшбэк: +${refund}`, '#88ff88');
+        
+        gs.gold -= cost;
+        gs.research[upgradeKey] = currentLevel + 1;
+        
+        const cashbackLevel = gs.research.cashback || 0;
+        if (cashbackLevel > 0) {
+            const refund = Math.floor(cost * (cashbackLevel * 0.05));
+            gs.gold += refund;
+            if (UI && typeof UI.showNotification === 'function') {
+                UI.showNotification(`🔄 Кэшбэк: +${refund}`, '#88ff88');
+            }
         }
-    }
+        
+        if (UI && typeof UI.showPurchaseEffect === 'function') {
+            UI.showPurchaseEffect(upgrade.name, cost, currentLevel + 1);
+        }
+        
+        saveGame(gs);
+        refreshResearchUI();
+        UI.update();
+    },
     
-    // Визуальный эффект
-    if (UI && typeof UI.showPurchaseEffect === 'function') {
-        UI.showPurchaseEffect(upgrade.name, cost, currentLevel + 1);
-    }
-    
-    // Сохраняем
-    saveGame(gs);
-    
-    // Обновляем UI дерева
-    refreshResearchUI();
-    UI.update();
-},
     setupEvents() {
         const pauseBtn = document.getElementById('pause-btn');
         const researchBtn = document.getElementById('research-btn');

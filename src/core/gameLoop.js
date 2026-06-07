@@ -15,13 +15,17 @@ export function startGameLoop(gameState, onResetGame, onUpdateUI) {
             if (!gameState.isPaused) {
                 gameState.isPaused = true;
                 
-                // ❌ Убираем старый alert
-                // alert(`💀 ИГРА ОКОНЧЕНА!\nВы набрали очков: ${gameState.score}`);
-                
-                // ✅ Показываем красивый экран Game Over
+                // Показываем экран Game Over
                 if (UI && typeof UI.showGameOver === 'function') {
                     UI.showGameOver(gameState.score, gameState.gold, gameState.currentLevel);
                 }
+                
+                // 👇 РЕКЛАМА ЧЕРЕЗ 0.5 СЕКУНДЫ ПОСЛЕ GAME OVER
+                setTimeout(() => {
+                    if (UI && typeof UI.showYandexAd === 'function') {
+                        UI.showYandexAd();
+                    }
+                }, 500);
                 
                 if (onResetGame) onResetGame();
             }

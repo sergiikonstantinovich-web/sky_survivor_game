@@ -221,6 +221,18 @@ showPurchaseEffect(upgradeName, cost, newLevel) {
         }, 300);
     }
 },
+showYandexAd() {
+    // Проверяем, есть ли Ya.ad
+    if (typeof Ya !== 'undefined' && Ya.ad) {
+        Ya.ad.show({
+            container: 'yandex-ad',
+            onSuccess: () => console.log('✅ Реклама загружена'),
+            onError: (err) => console.log('❌ Ошибка рекламы:', err)
+        });
+    } else {
+        console.log('📢 Yandex Ads не загружен, пропускаем');
+    }
+},
 };
 
 // Экспортируем и вешаем в window (для обратной совместимости)
