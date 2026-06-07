@@ -34,7 +34,7 @@ html, body {
     flex-grow: 1;
     position: relative;
     width: 100%;
-    background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('bg_boss.jpg'); 
+    background-image: url('assets/bg.png');
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
@@ -56,23 +56,52 @@ canvas {
     top: 10px;
     width: 45px;
     height: 45px;
-    background: none;
+    background: transparent;
     border: none;
-    font-size: 26px;
+    font-size: 28px;
     cursor: pointer;
-    z-index: 50; /* Чтобы кнопки были строго поверх холста */
+    z-index: 50;
     outline: none;
-    -webkit-tap-highlight-color: transparent; /* Полностью убирает системный круг/квадрат при тапе на Android */
+    -webkit-tap-highlight-color: transparent;
+    text-shadow: 0 0 5px currentColor;
+    transition: all 0.2s ease;
 }
 
 /* Кнопка исследований (стрелочка) — строго СЛЕВА */
 .research-pos {
     left: 15px;
+    color: #00ffcc;
+    text-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc;
 }
 
-/* Кнопка паузы (две полоски) — строго СПРАВА */
+.research-pos:active {
+    transform: scale(0.9);
+    text-shadow: 0 0 20px #00ffcc, 0 0 30px #00ffcc;
+}
+
+/* Кнопка паузы — СПРАВА */
 .pause-pos {
     right: 15px;
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00, 0 0 20px #ffaa00;
+}
+
+.pause-pos:active {
+    transform: scale(0.9);
+    text-shadow: 0 0 20px #ffaa00, 0 0 30px #ffaa00;
+}
+/* Пульсация для кнопки исследований */
+.research-pos {
+    animation: researchPulse 2s ease-in-out infinite;
+}
+
+@keyframes researchPulse {
+    0% {
+        text-shadow: 0 0 5px #00ffcc, 0 0 10px #00ffcc;
+    }
+    100% {
+        text-shadow: 0 0 15px #00ffcc, 0 0 25px #00ffcc, 0 0 35px #00ffcc;
+    }
 }
 
 /* Вытянутая полоска ХП в стиле Lamar — идеально зажата между кнопками */

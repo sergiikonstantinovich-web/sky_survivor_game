@@ -20,10 +20,10 @@ export function startGameLoop(gameState, onResetGame, onUpdateUI) {
                     UI.showGameOver(gameState.score, gameState.gold, gameState.currentLevel);
                 }
                 
-                // 👇 РЕКЛАМА ЧЕРЕЗ 0.5 СЕКУНДЫ ПОСЛЕ GAME OVER
+                 // 👇 МЕЖСТРАНИЧНАЯ РЕКЛАМА
                 setTimeout(() => {
-                    if (UI && typeof UI.showYandexAd === 'function') {
-                        UI.showYandexAd();
+                    if (UI && typeof UI.showInterstitialAd === 'function') {
+                        UI.showInterstitialAd();
                     }
                 }, 500);
                 

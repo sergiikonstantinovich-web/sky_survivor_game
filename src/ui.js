@@ -221,16 +221,22 @@ showPurchaseEffect(upgradeName, cost, newLevel) {
         }, 300);
     }
 },
-showYandexAd() {
-    // Проверяем, есть ли Ya.ad
-    if (typeof Ya !== 'undefined' && Ya.ad) {
-        Ya.ad.show({
-            container: 'yandex-ad',
-            onSuccess: () => console.log('✅ Реклама загружена'),
-            onError: (err) => console.log('❌ Ошибка рекламы:', err)
+showInterstitialAd() {
+    if (typeof Ya !== 'undefined' && Ya.MobileAds) {
+        Ya.MobileAds.showInterstitial({
+            id: 'demo-interstitial-yandex',  // 👈 ТЕСТОВЫЙ ID (замени на свой позже)
+            onSuccess: () => {
+                console.log('📢 Межстраничная реклама показана');
+            },
+            onError: (err) => {
+                console.log('❌ Ошибка рекламы:', err);
+            },
+            onSkip: () => {
+                console.log('⏭️ Реклама пропущена');
+            }
         });
     } else {
-        console.log('📢 Yandex Ads не загружен, пропускаем');
+        console.log('📢 Yandex Mobile Ads не загружен');
     }
 },
 };
