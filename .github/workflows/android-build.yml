@@ -33,6 +33,7 @@ jobs:
           cp style.css www/
           cp -r src www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
+          cp -r audio www/ 2>/dev/null || true   # 👈 ДОБАВИТЬ ЭТУ СТРОКУ
           
           # Инициализируем Capacitor
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
