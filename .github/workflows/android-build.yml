@@ -24,7 +24,7 @@ jobs:
 
       - name: Create Keystore for Release
         run: |
-          keytool -genkey -v -keystore release.keystore -alias sky-survivor -keyalg RSA -keysize 2048 -validity 10000 -storepass r$Tore123 -keypass r$Tore123 -dname "CN=Sky Survivor, OU=Game, O=Dev, L=City, S=State, C=RU"
+          keytool -genkey -v -keystore release.keystore -alias sky-survivor -keyalg RSA -keysize 2048 -validity 10000 -storepass store123 -keypass key123 -dname "CN=Sky Survivor, OU=Game, O=Dev, L=City, S=State, C=RU"
       
       - name: Install Dependencies and Build APK
         run: |
@@ -67,8 +67,8 @@ jobs:
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
-          echo "storePassword=r$Tore123" > android/key.properties
-          echo "keyPassword=r$Tore123" >> android/key.properties
+          echo "storePassword=store123" > android/key.properties
+          echo "keyPassword=key123" >> android/key.properties
           echo "keyAlias=sky-survivor" >> android/key.properties
           echo "storeFile=../release.keystore" >> android/key.properties
           
