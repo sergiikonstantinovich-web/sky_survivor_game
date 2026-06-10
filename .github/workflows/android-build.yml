@@ -22,24 +22,25 @@ jobs:
         with:
           node-version: 20
 
+      - name: Create Keystore for Release
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias sky-survivor -keyalg RSA -keysize 2048 -validity 10000 -storepass r$Tore123 -keypass r$Tore123 -dname "CN=Sky Survivor, OU=Game, O=Dev, L=City, S=State, C=RU"
+      
       - name: Install Dependencies and Build APK
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
-          # Копируем все файлы в www (сохраняя структуру папок)
           mkdir -p www
           cp index.html www/
           cp style.css www/
           cp -r src www/ 2>/dev/null || true
           cp -r assets www/ 2>/dev/null || true
-          cp -r audio www/ 2>/dev/null || true   # 👈 ДОБАВИТЬ ЭТУ СТРОКУ
+          cp -r audio www/ 2>/dev/null || true
           
-          # Инициализируем Capacitor
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
           
-          # Иконки
           sudo apt-get update && sudo apt-get install -y imagemagick
           
           RES_DIR="android/app/src/main/res"
@@ -63,17 +64,26 @@ jobs:
             exit 1
           fi
           
-          # Версионирование
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
-          # Сборка
+          echo "storePassword=r$Tore123" > android/key.properties
+          echo "keyPassword=r$Tore123" >> android/key.properties
+          echo "keyAlias=sky-survivor" >> android/key.properties
+          echo "storeFile=../release.keystore" >> android/key.properties
+          
           npx cap sync android
           chmod +x android/gradlew
-          cd android && ./gradlew assembleDebug
+          cd android && ./gradlew assembleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload Keystore Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-keystore
+          path: release.keystore
