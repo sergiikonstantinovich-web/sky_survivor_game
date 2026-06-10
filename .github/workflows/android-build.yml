@@ -25,11 +25,6 @@ jobs:
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
 
-      - name: Verify Keystore
-        run: |
-          file release.keystore
-          ls -la release.keystore
-
       - name: Install Dependencies and Build APK
         run: |
           export GRADLE_OPTS="-Xmx2048m -Dorg.gradle.daemon=false"
@@ -72,34 +67,11 @@ jobs:
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
-          echo "=== Проверка keystore ==="
-          file release.keystore
-          ls -la release.keystore
-          
-          cat > android/signing.gradle << 'EOF'
-android {
-    signingConfigs {
-        release {
-            storeFile file('../release.keystore')
-            storePassword 'store123'
-            keyAlias 'sky-survivor'
-            keyPassword 'key123'
-        }
-    }
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-        }
-    }
-}
-EOF
-          
-          echo "" >> android/app/build.gradle
-          echo "apply from: '../signing.gradle'" >> android/app/build.gradle
-          
-          echo "org.gradle.jvmargs=-Xmx2048m" > android/gradle.properties
-          echo "org.gradle.parallel=true" >> android/gradle.properties
-          echo "org.gradle.caching=true" >> android/gradle.properties
+          # Подпись через key.properties (проще и надёжнее)
+          echo "storePassword=store123" > android/key.properties
+          echo "keyPassword=key123" >> android/key.properties
+          echo "keyAlias=sky-survivor" >> android/key.properties
+          echo "storeFile=../release.keystore" >> android/key.properties
           
           npx cap sync android
           chmod +x android/gradlew
