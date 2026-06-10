@@ -25,8 +25,11 @@ jobs:
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
 
-      - name: Install Dependencies and Build
+      - name: Install Dependencies and Build APK
         run: |
+          # Отключаем лимиты и ускоряем сборку
+          export GRADLE_OPTS="-Xmx2048m -Dorg.gradle.daemon=false"
+          
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           
@@ -62,20 +65,15 @@ jobs:
             echo "Иконка resources/icon.png не найдена!"
           fi
           
-          # Безопасный versionCode (минуты вместо секунд, чтобы не превысить лимит Android)
-          VERSION_CODE=$(echo $(($(date +%s) / 60)))
-          sed -i "s/versionCode 1/versionCode $VERSION_CODE/g" android/app/build.gradle
-          sed -i "s/versionName \"1.0\"/versionName \"1.0.$VERSION_CODE\"/g" android/app/build.gradle
+          sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
-          # Автоматическое внедрение блока подписи релизного APK в build.gradle
-          cd android/app
-          cat <<EOT >> build.gradle
-
-          // Дописано автоматически в CI для подписи релиза
+          # Создаем файл подписи
+          cat > android/signing.gradle << 'EOF'
           android {
               signingConfigs {
                   release {
-                      storeFile file('../../release.keystore')
+                      storeFile file('../release.keystore')
                       storePassword 'store123'
                       keyAlias 'sky-survivor'
                       keyPassword 'key123'
@@ -87,12 +85,19 @@ jobs:
                   }
               }
           }
-          EOT
-          cd ../..
+          EOF
+          
+          echo "" >> android/app/build.gradle
+          echo "apply from: '../signing.gradle'" >> android/app/build.gradle
+          
+          # Настройки Gradle для ускорения
+          echo "org.gradle.jvmargs=-Xmx2048m" > android/gradle.properties
+          echo "org.gradle.parallel=true" >> android/gradle.properties
+          echo "org.gradle.caching=true" >> android/gradle.properties
           
           npx cap sync android
           chmod +x android/gradlew
-          cd android && ./gradlew assembleRelease && ./gradlew bundleRelease
+          cd android && ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
