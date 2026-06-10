@@ -22,10 +22,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Create Keystore for Release
-        run: |
-          keytool -genkey -v -keystore release.keystore -alias sky-survivor -keyalg RSA -keysize 2048 -validity 10000 -storepass store123 -keypass key123 -dname "CN=Sky Survivor, OU=Game, O=Dev, L=City, S=State, C=RU"
-      
       - name: Install Dependencies and Build APK
         run: |
           npm init -y
@@ -67,6 +63,7 @@ jobs:
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
+          # Используем существующий keystore
           echo "storePassword=store123" > android/key.properties
           echo "keyPassword=key123" >> android/key.properties
           echo "keyAlias=sky-survivor" >> android/key.properties
@@ -81,9 +78,3 @@ jobs:
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
-
-      - name: Upload Keystore Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-keystore
-          path: release.keystore
