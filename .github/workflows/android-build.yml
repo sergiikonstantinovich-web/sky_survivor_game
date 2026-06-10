@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Decode Keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
       - name: Install Dependencies and Build APK
         run: |
           npm init -y
@@ -57,13 +60,11 @@ jobs:
             convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png || true
           else
             echo "Иконка resources/icon.png не найдена!"
-            exit 1
           fi
           
           sed -i "s/versionCode 1/versionCode $(date +%s)/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$(date +%s)\"/g" android/app/build.gradle
           
-          # Используем существующий keystore
           echo "storePassword=store123" > android/key.properties
           echo "keyPassword=key123" >> android/key.properties
           echo "keyAlias=sky-survivor" >> android/key.properties
