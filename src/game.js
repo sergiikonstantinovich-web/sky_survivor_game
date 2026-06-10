@@ -11,11 +11,16 @@ import { togglePause, toggleResearch } from './ui/gameUI.js';
 import { loadGame, saveGame } from './core/saveSystem.js';
 import { TECH_TREE, getUpgradeCost } from './config/techTree.js';
 import { refreshResearchUI } from './ui/researchUI.js';
+import { soundManager } from './audio/audio.js';
 
 const Game = {
     isInitialized: false,
     
     startGame() {
+            if (soundManager && !window.musicStarted) {
+            soundManager.playMusic('../audio/bg_music.mp3');
+            window.musicStarted = true;
+        }
         if (UI && typeof UI.hideMainMenu === 'function') {
             UI.hideMainMenu();
         }
@@ -82,7 +87,15 @@ const Game = {
         
         // Загружаем сохранение
         loadGame(window.gameState);
-
+        // Звуки загружаются из папки audio в корне
+        soundManager.loadSound('tap', '../audio/tap.wav');
+        soundManager.loadSound('gold', '../audio/gold.wav');
+        soundManager.loadSound('heal', '../audio/heal.wav');
+        soundManager.loadSound('shield', '../audio/shield.wav');
+        soundManager.loadSound('boom', '../audio/boom.wav');
+        soundManager.loadSound('slowmo', '../audio/slowmo.wav');
+        soundManager.loadSound('click_menu', '../audio/click_menu.wav');
+    
         Engine.init();
         this.setupEvents();
         UI.update();
@@ -247,6 +260,8 @@ const Game = {
         
         console.log('🐢 Активация слоумо!', duration);
         
+        soundManager.playSound('slowmo', 0.6);
+        
         gs.slowmoActive = true;
         gs.slowmoTimer = duration;
         gs.slowmoMultiplier = 0.5;
@@ -325,40 +340,48 @@ const Game = {
     },
     
     setupEvents() {
+           console.log('🔴 setupEvents ВЫЗВАН');
+ 
         const pauseBtn = document.getElementById('pause-btn');
         const researchBtn = document.getElementById('research-btn');
         const healBtn = document.getElementById('emergency-heal');
         const resumeBtn = document.getElementById('resume-btn');
-        const startBtn = document.getElementById('start-btn');
+        const startBtn = document.getElementById('start-btn');   
+        console.log('🔴 startBtn:', startBtn);
         const slowmoBtn = document.getElementById('slowmo-btn');
         
         if (startBtn) {
             startBtn.onclick = (e) => {
                 e.stopPropagation();
+                soundManager.playSound('click_menu', 0.4);
                 this.startGame();
             };
         }
         if (pauseBtn) {
             pauseBtn.onclick = (e) => {
                 e.stopPropagation();
+            soundManager.playSound('click_menu', 0.4);
                 this.togglePause();
             };
         }
         if (researchBtn) {
             researchBtn.onclick = (e) => {
                 e.stopPropagation();
+                soundManager.playSound('click_menu', 0.4);
                 this.toggleResearch();
             };
         }
         if (healBtn) {
             healBtn.onclick = (e) => {
                 e.stopPropagation();
+            soundManager.playSound('heal', 0.4);
                 this.healFromEmergency();
             };
         }
         if (resumeBtn) {
             resumeBtn.onclick = (e) => {
                 e.stopPropagation();
+                soundManager.playSound('click_menu', 0.4);
                 this.togglePause();
             };
         }

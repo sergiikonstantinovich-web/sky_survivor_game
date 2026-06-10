@@ -70,18 +70,19 @@
         };
     </script>
 
-    <!-- Модули -->
-    <script type="module" src="src/config/techTree.js"></script>
-    <script type="module" src="src/core/saveSystem.js"></script>
-    <script type="module" src="src/ui.js"></script>
-    <script type="module" src="src/engine.js"></script>
-    <script type="module" src="src/game.js"></script>
-    
-    <script type="module">
-        import Game from './src/game.js';
-        window.Game = Game;
-        Game.start();
-    </script>
+        <!-- Модули (правильный порядок) -->
+        <script type="module" src="src/audio/sounds.js"></script>
+        <script type="module" src="src/config/techTree.js"></script>
+        <script type="module" src="src/core/saveSystem.js"></script>
+        <script type="module" src="src/ui.js"></script>
+        <script type="module" src="src/engine.js"></script>
+        <script type="module" src="src/game.js"></script>
+        
+        <script type="module">
+            import Game from './src/game.js';
+            window.Game = Game;
+            Game.start();
+        </script>
     
     <!-- Неоновое уведомление об уровне -->
     <div id="level-notification" class="level-notification hidden">

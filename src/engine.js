@@ -1,7 +1,7 @@
 console.log('🔶 Engine.js загружен');
 // ========== src/engine.js ==========
 import { BASE_SPEED, TYPES } from './config/gameConfig.js';
-
+import { soundManager } from './audio/audio.js';
 // Храним ссылки на canvas и ctx
 let canvas, ctx;
 
@@ -263,7 +263,14 @@ setupTouches() {
                 e.stopPropagation();
                 hit = true;
                 this.createSplash(item.x, item.y, item.type.color || '#fff');
-
+// 🎵 ЗВУК ПРИ КЛИКЕ
+    const icon = item.type.icon;
+    if (icon === '🪙') soundManager.playSound('gold', 0.4);
+    else if (icon === '❤️') soundManager.playSound('heal', 0.5);
+    else if (icon === '🛡️') soundManager.playSound('shield', 0.4);
+    else if (icon === '💥') soundManager.playSound('boom', 0.6);
+    else soundManager.playSound('tap', 0.3);
+    
                 if (window.Game && typeof window.Game.handleItemClick === 'function') {
                     window.Game.handleItemClick(item);
                 }
@@ -274,6 +281,7 @@ setupTouches() {
         // Если кликнули в пустоту — сплэш
         if (!hit) {
             this.createSplash(touchX, touchY, '#00d2ff');
+            soundManager.playSound('tap', 0.2);
         }
     };
 
