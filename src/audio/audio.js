@@ -12,17 +12,19 @@ class SoundManager {
     loadSound(name, url) {
         const audio = new Audio(url);
         audio.preload = 'auto';
+        audio.load();  // принудительная загрузка
         this.sounds[name] = audio;
     }
 
-    // Проигрывание звука
+    // Проигрывание звука (оптимизированная версия без cloneNode)
     playSound(name, volume = 0.5) {
         if (!this.sfxEnabled) return;
         const sound = this.sounds[name];
         if (sound) {
-            const clone = sound.cloneNode();
-            clone.volume = volume;
-            clone.play().catch(e => console.log('Audio error:', e));
+            // Останавливаем, если уже играет, и перематываем в начало
+            sound.currentTime = 0;
+            sound.volume = volume;
+            sound.play().catch(e => console.log('Audio error:', e));
         }
     }
 

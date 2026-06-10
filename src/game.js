@@ -339,68 +339,77 @@ const Game = {
         UI.update();
     },
     
-    setupEvents() {
-           console.log('🔴 setupEvents ВЫЗВАН');
- 
-        const pauseBtn = document.getElementById('pause-btn');
-        const researchBtn = document.getElementById('research-btn');
-        const healBtn = document.getElementById('emergency-heal');
-        const resumeBtn = document.getElementById('resume-btn');
-        const startBtn = document.getElementById('start-btn');   
-        console.log('🔴 startBtn:', startBtn);
-        const slowmoBtn = document.getElementById('slowmo-btn');
-        
-        if (startBtn) {
-            startBtn.onclick = (e) => {
-                e.stopPropagation();
-                soundManager.playSound('click_menu', 0.4);
-                this.startGame();
-            };
-        }
-        if (pauseBtn) {
-            pauseBtn.onclick = (e) => {
-                e.stopPropagation();
-            soundManager.playSound('click_menu', 0.4);
-                this.togglePause();
-            };
-        }
-        if (researchBtn) {
-            researchBtn.onclick = (e) => {
-                e.stopPropagation();
-                soundManager.playSound('click_menu', 0.4);
-                this.toggleResearch();
-            };
-        }
-        if (healBtn) {
-            healBtn.onclick = (e) => {
-                e.stopPropagation();
-            soundManager.playSound('heal', 0.4);
-                this.healFromEmergency();
-            };
-        }
-        if (resumeBtn) {
-            resumeBtn.onclick = (e) => {
-                e.stopPropagation();
-                soundManager.playSound('click_menu', 0.4);
-                this.togglePause();
-            };
-        }
-        if (slowmoBtn) {
-            slowmoBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.activateSlowmo();
-            };
-        }
-
-        document.addEventListener('visibilitychange', () => {
-            const gs = window.gameState;
-            if (document.hidden && gs && gs.hp > 0) {
-                if (!gs.isPaused && !gs.isResearchOpen) this.togglePause();
-            }
-        });
-        
-        startGameTimers(window.gameState, () => this.checkLevelUp(), () => UI.update());
+setupEvents() {
+    const pauseBtn = document.getElementById('pause-btn');
+    const researchBtn = document.getElementById('research-btn');
+    const healBtn = document.getElementById('emergency-heal');
+    const resumeBtn = document.getElementById('resume-btn');
+    const startBtn = document.getElementById('start-btn');   
+    const slowmoBtn = document.getElementById('slowmo-btn');
+    
+    if (startBtn) {
+        startBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (soundManager) soundManager.playSound('click_menu', 0.4);
+            this.startGame();
+        };
     }
+    if (pauseBtn) {
+        pauseBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (soundManager) soundManager.playSound('click_menu', 0.4);
+            this.togglePause();
+        };
+    }
+    if (researchBtn) {
+        researchBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (soundManager) soundManager.playSound('click_menu', 0.4);
+            this.toggleResearch();
+        };
+    }
+    if (healBtn) {
+        healBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (soundManager) soundManager.playSound('heal', 0.4);
+            this.healFromEmergency();
+        };
+    }
+    if (resumeBtn) {
+        resumeBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (soundManager) soundManager.playSound('click_menu', 0.4);
+            this.togglePause();
+        };
+    }
+    if (slowmoBtn) {
+        slowmoBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.activateSlowmo();
+        };
+    }
+
+    // Обработка сворачивания игры
+    document.addEventListener('visibilitychange', () => {
+        const gs = window.gameState;
+        if (document.hidden && gs && gs.hp > 0) {
+            if (!gs.isPaused && !gs.isResearchOpen) {
+                this.togglePause();
+            }
+            // Выключаем звуки при сворачивании
+            if (soundManager) {
+                if (soundManager.music) soundManager.music.pause();
+            }
+        } else if (!document.hidden && soundManager && window.musicStarted) {
+            // Возобновляем музыку при возврате
+            if (soundManager.music && soundManager.musicEnabled) {
+                soundManager.music.play().catch(e => console.log('Resume error:', e));
+            }
+        }
+    });
+    
+    startGameTimers(window.gameState, () => this.checkLevelUp(), () => UI.update());
+}
 };
 
 export default Game;
