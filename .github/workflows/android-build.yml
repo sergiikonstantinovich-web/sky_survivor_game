@@ -67,30 +67,20 @@ jobs:
           VERSION_CODE=$(date +%s)
           sed -i "s/versionCode 1/versionCode $VERSION_CODE/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.$VERSION_CODE\"/g" android/app/build.gradle
-
-          # 1. Создаем правильный файл со свойствами ключа (Проверь тут свои пароли!)
-          echo "storePassword=store123" > android/key.properties
-          echo "keyPassword=key123" >> android/key.properties
-          echo "keyAlias=sky-survivor" >> android/key.properties
-          echo "storeFile=../../release.keystore" >> android/key.properties
           
-          # 2. Внедряем в начало build.gradle чтение этого файла
-          sed -i '1s/^/def keystorePropertiesFile = rootProject.file("key.properties")\ndef keystoreProperties = new Properties()\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n/' android/app/build.gradle
-
-          # 3. Добавляем блок подписи внутрь android { ... }
-          sed -i '/android {/a \    signingConfigs {\n        release {\n            storeFile file(keystoreProperties['"'"'storeFile'"'"'])\n            storePassword keystoreProperties['"'"'storePassword'"'"']\n            keyAlias keystoreProperties['"'"'keyAlias'"'"']\n            keyPassword keystoreProperties['"'"'keyPassword'"'"']\n        }\n    }' android/app/build.gradle
-
-          # 4. Применяем подпись к релизному типу сборки
-          sed -i '/release {/a \            signingConfig signingConfigs.release' android/app/build.gradle
-
           npx cap sync android
           chmod +x android/gradlew
 
       - name: Build Signed APK and AAB
         run: |
           cd android
-          ./gradlew clean assembleRelease bundleRelease --no-daemon
-
+          # Передаем параметры подписи напрямую в команду сборки (Замени дефолтные пароли на свои, если они другие)
+          ./gradlew clean assembleRelease bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file=../../release.keystore \
+            -Pandroid.injected.signing.store.password=store123 \
+            -Pandroid.injected.signing.key.alias=sky-survivor \
+            -Pandroid.injected.signing.key.password=key123
+            
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
