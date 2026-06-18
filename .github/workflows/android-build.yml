@@ -33,21 +33,61 @@ jobs:
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           mkdir -p www
           cp -r . www/ 2>/dev/null || true
+          cp -r resources www/ 2>/dev/null || true
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
+          
+          # [ВОЗВРАЩАЕМ ИКОНКУ]
+          # Ставим утилиту для нарезки картинок
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          
+          RES_DIR="android/app/src/main/res"
+          if [ -f resources/icon.png ]; then
+            # Удаляем дефолтные адаптивные xml-иконки, чтобы они не перекрывали нашу png
+            find $RES_DIR -name "ic_launcher.xml" -delete || true
+            find $RES_DIR -name "ic_launcher_round.xml" -delete || true
+            
+            # Нарезаем под все разрешения Android
+            convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher.png || true
+            convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher.png || true
+            
+            convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher_round.png || true
+            convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png || true
+            echo "Иконки успешно сгенерированы!"
+          else
+            echo "Внимание: resources/icon.png не найден, оставляем дефолтную!"
+          fi
+          
+          # Копируем созданный на прошлом шаге ключ прямо внутрь андроид-проекта
+          cp release.keystore android/app/
+          
+          npx cap sync android
 
-      - name: Build signed APK and AAB
+      - name: Sign and Build
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease bundleRelease
+          # Передаем параметры подписи "на лету" без изменения build.gradle файла
+          # (Замени пароли и алиас ниже на свои, если они отличаются от дефолтных)
+          ./gradlew clean assembleRelease bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.password=store123 \
+            -Pandroid.injected.signing.key.alias=sky-survivor \
+            -Pandroid.injected.signing.key.password=key123
           cd ..
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release-signed
-          path: android/app/build/outputs/apk/release/*.apk
+          # Изменили маску пути, чтобы забирать файлы БЕЗ слова "unsigned"
+          path: android/app/build/outputs/apk/release/*-release.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
