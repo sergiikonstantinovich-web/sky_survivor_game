@@ -21,15 +21,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: '24'
 
       - name: Install Capacitor CLI
         run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
 
       - name: Build web project
         run: |
-          # Замените на свою команду сборки (npm run build, и т.д.)
           mkdir -p www
           cp index.html www/ 2>/dev/null || echo "No index.html at root"
           cp -r assets www/ 2>/dev/null || true
