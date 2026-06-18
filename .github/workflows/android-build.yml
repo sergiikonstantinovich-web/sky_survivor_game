@@ -1,4 +1,4 @@
-name: Build Android APK & AAB
+name: Build Signed APK and AAB
 
 on:
   push:
@@ -7,8 +7,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Source Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
@@ -17,80 +18,64 @@ jobs:
           java-version: '21'
           distribution: 'zulu'
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
-      - name: Install Dependencies and Prepare Project
+      - name: Install Capacitor CLI
+        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+
+      - name: Build web project
         run: |
-          export GRADLE_OPTS="-Xmx2048m -Dorg.gradle.daemon=false"
-          
-          npm init -y
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-          
+          # Замените на свою команду сборки (npm run build, и т.д.)
           mkdir -p www
-          cp index.html www/
-          cp style.css www/
-          cp -r src www/ 2>/dev/null || true
+          cp index.html www/ 2>/dev/null || echo "No index.html at root"
           cp -r assets www/ 2>/dev/null || true
-          cp -r audio www/ 2>/dev/null || true
-          
+          cp -r css www/ 2>/dev/null || true
+          cp -r js www/ 2>/dev/null || true
+
+      - name: Initialize Capacitor
+        run: |
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
-          
-          # [ГЛАВНЫЙ ФИКС ДЛЯ BASE64]
-          # Создаем файл ключа прямо внутри папки android/app из твоего готового секрета
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-          
-          sudo apt-get update && sudo apt-get install -y imagemagick
-          
-          RES_DIR="android/app/src/main/res"
-          if [ -f resources/icon.png ]; then
-            find $RES_DIR -name "ic_launcher.xml" -delete || true
-            find $RES_DIR -name "ic_launcher_round.xml" -delete || true
-            
-            convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher.png || true
-            convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher.png || true
-            convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher.png || true
-            convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher.png || true
-            convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher.png || true
-            
-            convert resources/icon.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher_round.png || true
-            convert resources/icon.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher_round.png || true
-            convert resources/icon.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher_round.png || true
-            convert resources/icon.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher_round.png || true
-            convert resources/icon.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png || true
-          else
-            echo "Иконка resources/icon.png не найдена!"
-          fi
-          
-          VERSION_CODE=$(date +%s)
-          sed -i "s/versionCode 1/versionCode $VERSION_CODE/g" android/app/build.gradle
-          sed -i "s/versionName \"1.0\"/versionName \"1.0.$VERSION_CODE\"/g" android/app/build.gradle
-          
-          npx cap sync android
-          chmod +x android/gradlew
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Build Signed APK and AAB
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
+      - name: Set up signing config
         run: |
           cd android
-          # Собираем оба формата и принудительно подписываем локальным файлом ключа
-          ./gradlew clean assembleRelease bundleRelease --no-daemon \
-            -Pandroid.injected.signing.store.file=release.keystore \
-            -Pandroid.injected.signing.store.password=store123 \
-            -Pandroid.injected.signing.key.alias=sky-survivor \
-            -Pandroid.injected.signing.key.password=key123
-            
-      - name: Upload APK Artifact
+          echo "storePassword=${{ secrets.KEYSTORE_STORE_PASSWORD }}" > key.properties
+          echo "keyPassword=${{ secrets.KEYSTORE_KEY_PASSWORD }}" >> key.properties
+          echo "keyAlias=sky-survivor" >> key.properties
+          echo "storeFile=../release.keystore" >> key.properties
+          cd ..
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Build signed APK and AAB
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease
+          cd ..
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: android/app/build/outputs/apk/release/*-release.apk
+          name: app-release-signed
+          path: android/app/build/outputs/apk/release/*.apk
 
-      - name: Upload AAB Artifact
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
