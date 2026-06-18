@@ -12,53 +12,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 (Zulu)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'zulu'
 
-      - name: Setup Node.js
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-
-      - name: Install Capacitor CLI
-        run: npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-
-      - name: Build web project
-        run: |
-          mkdir -p www
-          cp index.html www/ 2>/dev/null || echo "No index.html at root"
-          cp -r assets www/ 2>/dev/null || true
-          cp -r css www/ 2>/dev/null || true
-          cp -r js www/ 2>/dev/null || true
-
-      - name: Initialize Capacitor
-        run: |
-          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
-          npx cap add android
+          node-version: 24
 
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          ls -la release.keystore
 
-      - name: Set up signing config
+      - name: Build with Capacitor
         run: |
-          cd android
-          echo "storePassword=${{ secrets.KEYSTORE_STORE_PASSWORD }}" > key.properties
-          echo "keyPassword=${{ secrets.KEYSTORE_KEY_PASSWORD }}" >> key.properties
-          echo "keyAlias=sky-survivor" >> key.properties
-          echo "storeFile=../release.keystore" >> key.properties
-          cd ..
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          mkdir -p www
+          cp -r . www/ 2>/dev/null || true
+          npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
+          npx cap add android
 
       - name: Build signed APK and AAB
         run: |
