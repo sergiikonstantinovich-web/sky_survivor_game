@@ -23,7 +23,6 @@ jobs:
           node-version: 20
 
       - name: Install Dependencies and Prepare Project
-        # Декодирование ключа вынесли внутрь этого шага, чтобы точно знать, что папки созданы
         run: |
           export GRADLE_OPTS="-Xmx2048m -Dorg.gradle.daemon=false"
           
@@ -40,9 +39,8 @@ jobs:
           npx cap init "Sky Survivor" "ru.mygame.skysurvivor" --web-dir=www
           npx cap add android
           
-          # [БРОНЕБОЙНЫЙ ФИКС ДЛЯ GITIGNORE]
-          # Мы берем секрет из Гитхаба и декодируем его СРАЗУ в папку приложения
-          # (Тут мы используем переменную, которую определим на шаг ниже)
+          # [ГЛАВНЫЙ ФИКС ДЛЯ BASE64]
+          # Создаем файл ключа прямо внутри папки android/app из твоего готового секрета
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
           
           sudo apt-get update && sudo apt-get install -y imagemagick
@@ -73,14 +71,13 @@ jobs:
           
           npx cap sync android
           chmod +x android/gradlew
-        # Это самое важное: прокидываем секрет как переменную среды в этот шаг
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Build Signed APK and AAB
         run: |
           cd android
-          # Указываем Gradle брать локальный файл ключа, который мы только что закинули в app/
+          # Собираем оба формата и принудительно подписываем локальным файлом ключа
           ./gradlew clean assembleRelease bundleRelease --no-daemon \
             -Pandroid.injected.signing.store.file=release.keystore \
             -Pandroid.injected.signing.store.password=store123 \
